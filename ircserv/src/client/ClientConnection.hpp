@@ -15,82 +15,68 @@
 
 #include <iostream>
 #include <string>
-#include <set>
-#include <vector>
 #include <ctime>
 
-/* Fordward declarations */
-class Server; 
-class Channel;
+class Server;
+class User;
 
 /** 
- * -R- This is the client class. Its main function is to store the user's state,
- * -R- manage the input and output buffer, and provide the server with all the
- * -R- information necessary to processs commands and send responses.
+ * -R- Manages the TCP connection state, I/O buffers, and authentication status.
+ * -R- Each ClientConnection is associated with one User once registered.
 **/
-
 class ClientConnection
 {
-	public:
-		ClientConnection(int fd);
-		~ClientConnection();
+    public:
+        ClientConnection(int fd);
+        ~ClientConnection();
 
-		bool	isRegistered() const;
-		
-		/* Getters */
-		int		getFd() const;
-		const	std::string& getNickname() const;
-		const	std::string& getUsername() const;
-		const	std::string& getRealname() const;
-		const	std::string& getHostname() const;
+        /* Connection state */
+        bool	isRegistered() const;
+        void	setRegistered(bool r);
+        void	markPassReceived();
+        bool	hasSentPass() const;
+        
+        /* Socket info */
+        int		getFd() const;
+        
+        /* IO operations */
+        void	appendRecvData(const std::string& data);
+        bool	hasCompleteLine() const;
+        std::string	popLine();
+        
+        void	queueSend(const std::string& data);
+        bool	hasPendingSend() const;
+        const std::string& getSendBuffer() const;
+        void	clearSentData(size_t bytes);
 
-		/* Setters */
-		void	setNickname(const std::string& nick);
-		void	setUsername(const std::string& user);
-		void	setRealname(const std::string& real);
-		void	setHostname(const std::string& host);
-		void	setRegistered(bool r);
+        /* Activity tracking */
+        void	updateActivity();
+        time_t	getLastActivity() const;
 
-		void	markPassReceived();
+        /* Connection management */
+        void	closeConnection();
+        bool	isClosed() const;
 
-		/* IO helpers */
-		void	appendRecvData(const std::string& data);
-		bool	hasCompleteLine() const;
-		void	queueSend(const std::string& data);
-		bool	hasPendingSend() const;
+        /* User association */
+        void	setUser(User* user);
+        User*	getUser() const;
 
-		std::string	popLine();
+    private:
+        const int _fd;							//* TCP socket (const after construction)
+        
+        std::string	_recvBuffer;				//* Incoming data buffer
+        std::string _sendBuffer;				//* Outgoing data buffer
+        
+        bool _registered;						//* True after PASS + NICK + USER sequence
+        bool _hasSentPass;						//* True after valid PASS command
+        bool _closed;							//* True if connection should be terminated
+        
+        time_t _lastActivity;					//* Timestamp of last received data
+        
+        User* _user;							//* Pointer to associated User (NULL until registered)
 
-		/* Channel gestor */
-		void	joinChannel(const std::string& channelName);
-		void	leaveChannel(const std::string& chaannelName);
-		const	std::set<std::string>& getChannels() const;
-
-		/* State methods */
-		void	closeConnections();
-		bool	isClosed() const;
-
-	private:
-		int	id = -1;						//*
-		const int _fd;						//* Socket descriptor for this client
-
-		std::string	_recvBuffer;			//* Buffer to accumulate incoming data
-		std::string _sendBuffer;			//* Buffer for data pending to send
-		std::string _nickname;				//* Client's nickname
-		std::string _username;				//* Client's username
-		std::string _realname;				//* Client's real name
-		std::string _hostname;				//* Client's hostname
-
-		bool _registered;					//* True if client completed PASS+NICK+USER
-		bool _hasSentPass;					//* True if client sent PASS command
-		bool _isOperator;					//* 
-
-		std::set<std::string> _channels;	//* Names of channels the client has joined
-		time_t _lastActivity;				//* Timestamp of last activity
-
-		ClientConnection(const ClientConnection&);				//* Disabled copy constructor
-		ClientConnection& operator=(const ClientConnection&);	//* Disabled assignment operator
-
+        ClientConnection(const ClientConnection&);
+        ClientConnection& operator=(const ClientConnection&);
 };
 
 #endif

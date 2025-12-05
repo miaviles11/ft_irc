@@ -6,7 +6,7 @@
 /*   By: miaviles <miaviles@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 17:15:15 by miaviles          #+#    #+#             */
-/*   Updated: 2025/12/05 17:35:35 by miaviles         ###   ########.fr       */
+/*   Updated: 2025/12/05 18:24:56 by miaviles         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,6 +17,8 @@
 #include "SocketUtils.hpp"
 
 #include <unistd.h>
+#include <cerrno>
+#include <iostream>
 
 //* ============================================================================
 //* CONSTRUCTOR Y DESTRUCTOR
@@ -95,6 +97,41 @@ void Server::run()
 {
     std::cout << "[SERVER] Main loop started" << std::endl;
 
+	while (running_)
+	{
+		//* WAIT FOR ACTIVITY on any socket (server + all clients)
+		//* poll() with "-1" blocks here until something happens
+		//* Returns: number of sockets with activity, or -1 on error
+		int poll_count = poll(&poll_fds_[0], poll_fds_.size(), -1);
+		
+		//* HANDLE POLL ERRORS
+		if (poll_count < 0)
+		{
+			if (errno == EINTR)              //* Interrupted by signal (e.g., Ctrl+C) - not fatal
+				continue;                     //* Restart poll() loop
+			std::cerr << "[ERROR] poll() failed" << std::endl; //* If it is other error...
+			break;                            //* Fatal error - exit loop
+		}
+		
+		//* CHECK EACH SOCKET for activity
+		for (size_t i = 0; i < poll_fds_.size(); ++i)
+		{
+			//* SKIP if no events on this socket
+			if (poll_fds_[i].revents == 0)
+				continue;
+			
+			//* CASE 1: Activity on SERVER SOCKET (new connection incoming)
+			if (poll_fds_[i].fd == server_fd_)
+			{
+				if (poll_fds_[i].revents & POLLIN)    //* Data ready to read = new client waiting
+					acceptNewConnections();            //* Accept the new client
+			}
+			//* CASE 2: Activity on CLIENT SOCKET (existing client sent data)
+			else
+				handleClientEvent(i);                  //* Process client's message/task
+		}
+	}
+	std::cout << "[SERVER] Main loop ended" << std::endl;
 }
 
 //* ============================================================================
@@ -167,7 +204,7 @@ void Server::updatePollEvents(int fd, short events)
 
 }
 
-ClientConnection* findClientByFd(int fd)
+ClientConnection* Server::findClientByFd(int fd)
 {
 
 }

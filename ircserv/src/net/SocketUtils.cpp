@@ -6,7 +6,7 @@
 /*   By: miaviles <miaviles@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/08 17:09:27 by miaviles          #+#    #+#             */
-/*   Updated: 2025/12/08 18:03:39 by miaviles         ###   ########.fr       */
+/*   Updated: 2025/12/08 18:31:00 by miaviles         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,13 +17,14 @@
 #include <fcntl.h>
 #include <cstring>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 //* ========================================
 //* SOCKET CONFIGURATION
 //* ========================================
 
 //* Makes the socket non-blocking: calls won't block waiting for data and will return immediately if nothing is available.
-bool	setNonBlocking(int fd)
+bool	SocketUtils::setNonBlocking(int fd)
 {
 	int flags = fcntl(fd, F_GETFL, 0); 					//* "fcntl is used to manipulated FDs, in this case in F_GETFL mode is to see the status of FDs"
 	if (flags == -1)
@@ -62,7 +63,7 @@ bool	setNonBlocking(int fd)
 //*   - SO_REUSEADDR: Specific option to enable address reuse
 //*   - opt = 1: Enable the option (0 would disable it)
 //* ========================================
-bool	setReuseAddr(int fd)
+bool	SocketUtils::setReuseAddr(int fd)
 {
 	int opt = 1;                                      //* 1 = enable, 0 = disable
 
@@ -78,7 +79,7 @@ bool	setReuseAddr(int fd)
 //* SERVER SOCKET CREATION
 //* ========================================
 
-int		createServerSocket()
+int		SocketUtils::createServerSocket()
 {
 	//* CREATE A SOCKET -->
 	//* AF_INET = IPv4 (DOMAIN)
@@ -91,16 +92,47 @@ int		createServerSocket()
 		return (-1);	
 	}
 	std::cout << "[SOCKET] Socket created (fd=" << fd << ")" << std::endl;
-	
-
+    if (!setReuseAddr(fd)) //* Configure SO_REUSEADDR
+	{
+        close(fd);
+        return (-1);
+    }
+    if (!setNonBlocking(fd)) //* Configure non-blocking
+	{
+        close(fd);
+        return (-1);
+    }
+    std::cout << "[SOCKET] ✓ Socket configured (non-blocking + SO_REUSEADDR)" << std::endl;
+    return (fd);
 }
 
-bool	bindSocket(int fd, int port)
+//* ========================================
+//* BIND: Attach socket to a specific port
+//* Purpose: Associates the socket with a port number so clients know where to connect
+//* Think of it like: "This socket will listen on port 6667"
+//* ========================================
+bool	SocketUtils::bindSocket(int fd, int port)
 {
+	//* Prepare address structure for IPv4
+	struct sockaddr_in addr;
+	std::memset(&addr, 0, sizeof(addr));              //* Zero out the structure (good practice)
 
+	addr.sin_family = AF_INET;                         //* Address family: IPv4
+	addr.sin_addr.s_addr = INADDR_ANY;                 //* Bind to all network interfaces (0.0.0.0)
+	addr.sin_port = htons(port);                       //* Convert port to network byte order (big-endian)
+
+	//* Attach the socket to the port
+	if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
+	{
+		std::cerr << "[SOCKET] bind() failed on port " << port 
+				<< ": " << strerror(errno) << std::endl;
+		return (false);
+	}
+	std::cout << "[SOCKET] ✓ Bound to 0.0.0.0:" << port << std::endl;
+	return (true);
 }
 
-bool	listenSocket(int fd, int backlog)
+bool	SocketUtils::listenSocket(int fd, int backlog)
 {
 
 }
@@ -109,7 +141,7 @@ bool	listenSocket(int fd, int backlog)
 //* CLIENT CONNECTION HANDLING
 //* ========================================
 
-int		acceptClient(int server_fd, std::string& client_ip)
+int		SocketUtils::acceptClient(int server_fd, std::string& client_ip)
 {
 
 }
@@ -118,12 +150,12 @@ int		acceptClient(int server_fd, std::string& client_ip)
 //* I/O OPERATIONS
 //* ========================================
 
-ssize_t	receiveData(int fd, char* buffer, size_t size)
+ssize_t	SocketUtils::receiveData(int fd, char* buffer, size_t size)
 {
 
 }
 
-ssize_t	sendData(int fd, const char* data, size_t size)
+ssize_t	SocketUtils::sendData(int fd, const char* data, size_t size)
 {
 
 }
@@ -132,12 +164,15 @@ ssize_t	sendData(int fd, const char* data, size_t size)
 //* ERROR HANDLING
 //* ========================================
 
-bool	isWouldBlock()
+//* In non-blocking I/O, EAGAIN and EWOULDBLOCK indicate that
+//* the operation should be retried later (not a real error)
+bool	SocketUtils::isWouldBlock()
 {
-
+	return (errno == EAGAIN || errno == EWOULDBLOCK); //*  EWOULDBLOCK IS AN ALIAS OF EGAIN
 }
 
-std::string	getLastError()
+std::string	SocketUtils::getLastError()
 {
+	return (std::string(strerror(errno)));     //* Return a string describing the meaning of errno
 
 }

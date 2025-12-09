@@ -6,7 +6,7 @@
 /*   By: miaviles <miaviles@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 17:15:15 by miaviles          #+#    #+#             */
-/*   Updated: 2025/12/09 16:19:14 by miaviles         ###   ########.fr       */
+/*   Updated: 2025/12/09 16:54:38 by miaviles         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -173,11 +173,39 @@ int Server::getClientCount() const
 //* ACCEPT - Uses SocketUtils
 //* ============================================================================
 
+//* ACCEPT NEW CONNECTIONS
+//* Core function that handles incoming client connections to the IRC server.
+//* Creates ClientConnection and User objects, links them together, and adds
+//* the new client to both the clients_ vector and poll monitoring system.
+//* Uses non-blocking socket operations to accept multiple pending connections.
+
 void Server::acceptNewConnections()
 {
+	//* ACCEPT ALL PENDING CONNECTIONS in a loop (non-blocking)
 	while (true)
 	{
-		
+		std::string client_ip;                                             //* Will store client's IP address
+		int client_fd = SocketUtils::acceptClient(server_fd_, client_ip);  //* Accept one connection, get client socket fd and IP
+
+		//* BREAK if no more connections pending (non-blocking would return -1)
+		if (client_fd < 0)
+			break;
+
+		//* CREATE CLIENT CONNECTION OBJECT (manages socket I/O and buffers)
+		ClientConnection* connection = new ClientConnection(client_fd);
+
+		//* CREATE USER OBJECT (stores IRC user data: nick, username, channels, etc.)
+		User* user = new User();
+		user->setHostname(client_ip);                                       //* Store client's IP address in user profile
+		user->setConnection(connection);                                    //* Link User -> ClientConnection (bidirectional relationship)
+		connection->setUser(user);                                          //* Link ClientConnection -> User
+
+		//* REGISTER CLIENT in server's client list
+		clients_.push_back(connection);                                     //* Add to vector for tracking all connected clients
+		addClientToPoll(connection);                                        //* Add client's fd to poll_fds_ for I/O monitoring
+
+		std::cout << "[SERVER] ✓ New client from " << client_ip 
+				  << " (fd=" << client_fd << ", total=" << clients_.size() << ")" << std::endl;
 	}
 }
 
@@ -223,15 +251,31 @@ void Server::sendPendingData(ClientConnection* client)
 
 void Server::addClientToPoll(ClientConnection* client)
 {
-
+	struct pollfd pfd;
+	pfd.fd = client->getFd();       //* File descriptor of the client socket to monitor
+	pfd.events = POLLIN;            //* Register interest in read events (incoming data)
+	pfd.revents = 0;                //* Clear returned events field (will be filled by poll())
+	poll_fds_.push_back(pfd);       //* Add to poll array for monitoring
 }
 
 void Server::updatePollEvents(int fd, short events)
 {
-
+	for (size_t i = 0; i < poll_fds_.size(); ++i)
+	{
+		if (poll_fds_[i].fd == fd)
+		{
+			poll_fds_[i].events = events; // Found and updated
+			break;
+		}
+	}
 }
 
 ClientConnection* Server::findClientByFd(int fd)
 {
-
+	for (size_t i = 0; i < clients_.size(); ++i) //* Just looking in the vector<ClientConnection*> if there is that client.
+	{
+		if (clients_[i] && clients_[i]->getFd() == fd) 
+			return (clients_[i]);
+	}
+	return (NULL);
 }

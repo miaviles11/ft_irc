@@ -6,7 +6,7 @@
 /*   By: miaviles <miaviles@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 17:15:15 by miaviles          #+#    #+#             */
-/*   Updated: 2025/12/09 16:54:38 by miaviles         ###   ########.fr       */
+/*   Updated: 2025/12/09 17:24:55 by miaviles         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -213,9 +213,77 @@ void Server::acceptNewConnections()
 //* HANDLE CLIENT EVENTS
 //* ============================================================================
 
+//* HANDLE CLIENT EVENT
+//* Core event handler that processes all socket activity for connected clients.
+//* Called by main loop when poll() detects activity on a client socket.
+//* Handles three main scenarios:
+//* 1. Socket errors/disconnections (POLLERR, POLLHUP, POLLNVAL)
+//* 2. Incoming data ready to read (POLLIN)
+//* 3. Socket ready for writing (POLLOUT)
+//* Manages the complete client I/O lifecycle: receive -> buffer -> parse -> respond
+
 void Server::handleClientEvent(size_t poll_index)
 {
+	int client_fd = poll_fds_[poll_index].fd;              //* Extract file descriptor from poll array
+	short revents = poll_fds_[poll_index].revents;         //* Extract returned events (what actually happened on this socket)
 
+	//* FIND CLIENT OBJECT associated with this file descriptor
+	ClientConnection* client = findClientByFd(client_fd);
+	if (!client)
+	{
+		std::cerr << "[ERROR] Client not found for fd=" << client_fd << std::endl;
+		return;                                             //* Orphaned socket - should never happen but handle gracefully
+	}
+
+	//* CHECK FOR SOCKET ERRORS OR DISCONNECTION
+	//* POLLERR  = Error condition (socket error, network issue)
+	//* POLLHUP  = Hang up (client closed their end of connection)
+	//* POLLNVAL = Invalid request (fd not open - rare but possible)
+	if (revents & (POLLERR | POLLHUP | POLLNVAL))
+	{
+		std::cout << "[SERVER] Client fd=" << client_fd << " disconnected (error/hangup)" << std::endl;
+		disconnectClient(poll_index);                       //* Clean up and remove client
+		return;
+	}
+
+	//* HANDLE INCOMING DATA (client sent something)
+	if (revents & POLLIN)
+	{
+		char buffer[4096];                                  //* Temporary buffer for received data (4KB is standard for IRC)
+		ssize_t bytes = SocketUtils::receiveData(client_fd, buffer, sizeof(buffer) - 1); //* Read from socket (-1 leaves room for null terminator)
+
+		//* CASE 1: Data received successfully
+		if (bytes > 0)
+		{
+			buffer[bytes] = '\0';                           //* Null-terminate the received data for string safety
+			client->appendRecvData(std::string(buffer, bytes)); //* Add received data to client's receive buffer
+			client->updateActivity();                       //* Update last activity timestamp (for timeout tracking)
+			
+			std::cout << "[SERVER] Received " << bytes << " bytes from fd=" << client_fd << std::endl;
+			
+			processClientCommands(client);                  //* Parse and execute any complete IRC commands in buffer
+		}
+		//* CASE 2: Connection closed gracefully by peer
+		else if (bytes == 0)
+		{
+			std::cout << "[SERVER] Client fd=" << client_fd << " closed connection" << std::endl;
+			disconnectClient(poll_index);                   //* Clean up - client disconnected normally
+			return;
+		}
+		//* CASE 3: Error occurred during receive
+		else
+		{
+			if (!SocketUtils::isWouldBlock())               //* EWOULDBLOCK/EAGAIN is normal for non-blocking sockets
+				disconnectClient(poll_index);               //* Real error - disconnect client
+		}
+	}
+	
+	//* HANDLE OUTGOING DATA (socket ready to send)
+	//* POLLOUT event means kernel's send buffer has space available
+	if (revents & POLLOUT)
+	{
+		sendPendingData(client);                            //* Flush any queued outgoing messages to this client
+	}
 }
 
 //* ============================================================================
@@ -225,7 +293,7 @@ void Server::handleClientEvent(size_t poll_index)
 
 void Server::disconnectClient(size_t poll_index)
 {
-
+ 	//TODO
 }
 
 //* ============================================================================
@@ -242,7 +310,7 @@ void Server::processClientCommands(ClientConnection* client)
 
 void Server::sendPendingData(ClientConnection* client)
 {
-
+ 	//TODO
 }
 
 //* ============================================================================

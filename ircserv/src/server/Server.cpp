@@ -6,7 +6,7 @@
 /*   By: miaviles <miaviles@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 17:15:15 by miaviles          #+#    #+#             */
-/*   Updated: 2025/12/09 14:47:32 by miaviles         ###   ########.fr       */
+/*   Updated: 2025/12/09 16:19:14 by miaviles         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,7 @@
 #include <cerrno>
 #include <cstring>
 #include <iostream>
+#include <sys/socket.h>
 
 //* ============================================================================
 //* CONSTRUCTOR Y DESTRUCTOR
@@ -65,10 +66,24 @@ Server::~Server()
 
 bool Server::setupServerSocket()
 {
-	//TODO SocketUtils
-	//TODO CREATE SOCKET
-	//TODO BIND SOCKET
-	//TODO LISTEN SOCKET
+	server_fd_ = SocketUtils::createServerSocket();               //* Create a non-blocking TCP socket for the server
+	if (server_fd_ < 0)
+		return (false);
+	
+	if (!SocketUtils::bindSocket(server_fd_, port_))              //* Bind socket to specified port (associates socket with network address)
+	{
+		close(server_fd_);
+		server_fd_ = -1;
+		return (false);
+	}
+
+	if (!SocketUtils::listenSocket(server_fd_, SOMAXCONN))        //* Mark socket as passive (ready to accept connections), SOMAXCONN = max queue size
+	{
+		close(server_fd_);
+		server_fd_ = 1;
+		return (false);
+	}
+	return (true);
 }
 
 bool Server::start()
@@ -160,7 +175,10 @@ int Server::getClientCount() const
 
 void Server::acceptNewConnections()
 {
-
+	while (true)
+	{
+		
+	}
 }
 
 //* ============================================================================

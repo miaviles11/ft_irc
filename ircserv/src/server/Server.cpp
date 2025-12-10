@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: miaviles <miaviles@student.42madrid>       +#+  +:+       +#+        */
+/*   By: carlsanc <carlsanc@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 17:15:15 by miaviles          #+#    #+#             */
-/*   Updated: 2025/12/09 17:24:55 by miaviles         ###   ########.fr       */
+/*   Updated: 2025/12/10 19:19:57 by carlsanc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,10 +15,12 @@
 #include "../client/User.hpp"
 #include "../channel/Channel.hpp"
 #include "../net/SocketUtils.hpp"
+#include "../irc/Parser.hpp"
 
 #include <unistd.h>
 #include <cerrno>
 #include <cstring>
+#include <algorithm>
 #include <iostream>
 #include <sys/socket.h>
 
@@ -29,6 +31,7 @@
 Server::Server(int port, const std::string& password) : port_(port), 
 	password_(password), server_fd_(-1), running_(false)
 {
+	initCommands();
     std::cout << "[SERVER] Initializing on port " << port << std::endl;	
 }
 
@@ -293,7 +296,77 @@ void Server::handleClientEvent(size_t poll_index)
 
 void Server::disconnectClient(size_t poll_index)
 {
- 	//TODO
+    // 1. Obtener información básica antes de borrar nada
+    int fd = poll_fds_[poll_index].fd;
+    ClientConnection* client = findClientByFd(fd);
+
+    std::cout << "[SERVER] Disconnecting client fd=" << fd << std::endl;
+
+    // 2. Si el cliente existe, limpiar lógica de IRC y objetos
+    if (client)
+    {
+        User* user = client->getUser();
+        if (user)
+        {
+            // A. LIMPIEZA DE CANALES
+            // Hacemos una COPIA del vector de canales porque vamos a modificar
+            std::vector<Channel*> userChannels = user->getChannels();
+
+            for (std::vector<Channel*>::iterator it = userChannels.begin(); it != userChannels.end(); ++it)
+            {
+                Channel* channel = *it;
+
+                // 1. Notificar a los demás (QUIT message)
+                std::string quitMsg = ":" + user->getPrefix() + " QUIT :Connection closed\r\n";
+                channel->broadcast(quitMsg, user);
+
+                // 2. Eliminar al usuario del canal
+                channel->removeMember(user);
+
+                // 3. Gestionar canales vacíos (Evitar fugas de memoria en canales)
+                if (channel->getUserCount() == 0)
+                {
+                    // Buscar y borrar el canal de la lista global del servidor
+                    for (std::vector<Channel*>::iterator chanIt = channels_.begin(); chanIt != channels_.end(); ++chanIt)
+                    {
+                        if (*chanIt == channel)
+                        {
+                            delete *chanIt;
+                            channels_.erase(chanIt);
+                            break; 
+                        }
+                    }
+                }
+            }
+        }
+
+        // B. ELIMINAR DE LA LISTA DE CLIENTES DEL SERVIDOR
+        // (Usamos un bucle manual para encontrar y borrar el puntero en el vector)
+        for (std::vector<ClientConnection*>::iterator it = clients_.begin(); it != clients_.end(); ++it)
+        {
+            if (*it == client)
+            {
+                clients_.erase(it);
+                break;
+            }
+        }
+
+        // C. CERRAR SOCKET Y LIBERAR MEMORIA
+        close(fd);
+        if (user)
+            delete user; // El User debe borrarse manualmente
+        delete client;   // Borramos la conexión
+    }
+    else
+    {
+        // Si no encontramos el objeto cliente, cerramos el fd por seguridad
+        close(fd);
+    }
+
+    // 3. ACTUALIZAR POLL_FDS
+    // Eliminamos el fd del vector de monitoreo.
+    if (poll_index < poll_fds_.size())
+        poll_fds_.erase(poll_fds_.begin() + poll_index);
 }
 
 //* ============================================================================
@@ -302,10 +375,38 @@ void Server::disconnectClient(size_t poll_index)
 
 void Server::processClientCommands(ClientConnection* client)
 {
-	//TODO
-	//-C- Process complete IRC command lines from client
-	//-C-RESPONSIBILITIES (Parser/Commands team):
- 	//TODO: Parser/Commands team - implement full IRC command processing
+    // Procesamos TODAS las líneas completas que haya en el buffer
+    // (Importante por si llegaron varios comandos pegados)
+    while (client->hasCompleteLine())
+    {
+        std::string rawLine = client->popLine();
+        
+        // Debug opcional
+        // std::cout << "[DEBUG] < " << rawLine << std::endl;
+
+        // 1. Parseamos la línea
+        Message msg = Parser::parse(rawLine);
+
+        // 2. Si el comando está vacío (línea en blanco o solo espacios), ignoramos
+        if (msg.command.empty())
+            continue;
+
+        // 3. Buscamos el comando en el mapa
+        std::map<std::string, CommandHandler>::iterator it = _commandMap.find(msg.command);
+
+        if (it != _commandMap.end())
+        {
+            // Encontrado = Ejecutamos la función asociada
+            (this->*(it->second))(client, msg);
+        }
+        else
+        {
+            // COMANDO NO ENCONTRADO
+            // Deberia enviar ERR_UNKNOWNCOMMAND (421)
+            // Por ahora, un log simple:
+            std::cerr << "[SERVER] Unknown command: " << msg.command << std::endl;
+        }
+    }
 }
 
 void Server::sendPendingData(ClientConnection* client)
@@ -346,4 +447,25 @@ ClientConnection* Server::findClientByFd(int fd)
 			return (clients_[i]);
 	}
 	return (NULL);
+}
+
+void Server::initCommands()
+{
+    // Mapeamos el string del comando a la función miembro correspondiente
+    _commandMap["PASS"] = &Server::cmdPass;
+    _commandMap["NICK"] = &Server::cmdNick;
+    _commandMap["USER"] = &Server::cmdUser;
+    _commandMap["PING"] = &Server::cmdPing;
+    _commandMap["PONG"] = &Server::cmdPong;
+    _commandMap["QUIT"] = &Server::cmdQuit;
+    _commandMap["JOIN"] = &Server::cmdJoin;
+    _commandMap["PART"] = &Server::cmdPart;
+    _commandMap["PRIVMSG"] = &Server::cmdPrivMsg;
+    _commandMap["NOTICE"] = &Server::cmdNotice;
+    _commandMap["KICK"] = &Server::cmdKick;
+    _commandMap["INVITE"] = &Server::cmdInvite;
+    _commandMap["TOPIC"] = &Server::cmdTopic;
+    _commandMap["MODE"] = &Server::cmdMode;
+    
+    // El Parser ya se encarga de poner el comando en mayúsculas
 }

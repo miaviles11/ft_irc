@@ -1,103 +1,90 @@
-//TODO COMMANDS!
-//-C- A TRABAJAR! -____________-
+#ifndef CHANNEL_HPP
+#define CHANNEL_HPP
 
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <iostream>
 
-✔ PASS
+class User;
 
-Envía la contraseña para poder conectarse al servidor.
+/**
+ * Channel: Represents an IRC Channel
+ * * Responsibilities:
+ * - Manage list of members (users inside the channel)
+ * - Manage list of operators (users with privileges)
+ * - Manage channel modes (+i, +t, +k, +l)
+ * - Broadcast messages to members
+ */
+class Channel {
+    public:
+        Channel(const std::string& name);
+        ~Channel();
 
-✔ NICK
+        /* Basic Info */
+        const std::string& getName() const;
+        const std::string& getTopic() const;
+        void setTopic(const std::string& topic);
+        
+        /* Key / Password (+k) */
+        const std::string& getKey() const;
+        void setKey(const std::string& key);
 
-Establece o cambia el nickname del usuario.
+        /* User Limit (+l) */
+        void setLimit(int limit);
+        int getLimit() const;
+        size_t getUserCount() const;
 
-✔ USER
+        /* Modes Management */
+        void setMode(char mode, bool active);
+        bool hasMode(char mode) const;
+        std::string getModes() const; // Returns string like "+itk"
 
-Envía la información de registro del usuario.
-Necesario para completar la autenticación.
+        /* Membership Management */
+        void addMember(User* user);
+        void removeMember(User* user);
+        bool isMember(User* user) const;
+        User* getMember(const std::string& nickname); // Find user by nick inside channel
 
-✔ PING
+        /* Operator Management (+o) */
+        void addOperator(User* user);
+        void removeOperator(User* user);
+        bool isOperator(User* user) const;
 
-El cliente comprueba que el servidor está vivo.
-Tu servidor debe responder con PONG.
+        /* Invite List (+i) */
+        void addInvite(const std::string& nickname);
+        bool isInvited(User* user) const; // Checks if user's nick is in invite list
 
-✔ PONG
+        /* Communication */
+        // Sends a message to all members EXCEPT 'excludeUser' (usually the sender)
+        void broadcast(const std::string& message, User* excludeUser);
 
-Respuesta del cliente cuando el servidor envía un PING.
+        /* Utils */
+        // Returns string for RPL_NAMREPLY (e.g. "@Admin User1 User2")
+        std::string getNamesList() const;
 
-✔ JOIN
+    private:
+        std::string _name;
+        std::string _topic;
+        std::string _key;
+        int _limit;
 
-El usuario entra en un canal.
-Ejemplo:
-JOIN #general
+        /* Modes State */
+        bool _inviteOnly;       // +i
+        bool _topicRestricted;  // +t
+        bool _keyMode;          // +k
+        bool _limitMode;        // +l
 
-✔ PART
+        /* Lists */
+        std::vector<User*> _members;
+        std::vector<User*> _operators;
+        std::vector<std::string> _invites; // List of invited nicknames
 
-El usuario SALE de un canal.
+        /* Helpers */
+        // Forbidden to copy channels
+        Channel();
+        Channel(const Channel&);
+        Channel& operator=(const Channel&);
+};
 
-✔ PRIVMSG
-
-Enviar un mensaje privado a:
-
-un usuario
-
-un canal
-
-Ej: PRIVMSG #general :Hola a todos
-
-✔ NOTICE
-
-Como PRIVMSG pero sin respuestas automáticas.
-
-✔ QUIT
-
-El usuario cierra la sesión en el servidor.
-
-✅ 2. Comandos que deben soportar los OPERADORES DE CANAL (OP)
-
-(Los operadores son usuarios con privilegios dentro de un canal, no del servidor)
-
-Estos son exactamente los que exige el subject:
-
-✔ KICK
-
-Expulsa a un usuario del canal.
-KICK #canal usuario :razón
-
-✔ INVITE
-
-Invita a un usuario a entrar al canal.
-INVITE usuario #canal
-
-✔ TOPIC
-
-Cambia o muestra el tema del canal.
-TOPIC #canal :Nuevo tema
-
-✔ MODE
-
-Gestiona los modos del canal.
-El subject exige implementar:
-
-🔧 Modos obligatorios de canal (todos pertenecen a MODE)
-✔ i — Invite-only
-
-El canal solo acepta usuarios invitados.
-
-MODE #canal +i
-MODE #canal -i
-
-✔ t — Solo OP puede cambiar TOPIC
-MODE #canal +t
-MODE #canal -t
-
-✔ k — Establecer/eliminar clave del canal (password)
-MODE #canal +k contraseña
-MODE #canal -k
-
-✔ o — Dar o quitar OP a un usuario
-MODE #canal +o usuario
-MODE #canal -o usuario
-
-✔ l — Establecer o eliminar límite de usuarios
-MODE #canal +l 10
-MODE #canal -l
+#endif

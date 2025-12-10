@@ -3,25 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Channel.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: miaviles <miaviles@student.42madrid>       +#+  +:+       +#+        */
+/*   By: carlsanc <carlsanc@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/12/09 14:41:54 by miaviles          #+#    #+#             */
-/*   Updated: 2025/12/09 14:42:19 by miaviles         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
-📋 Esquema Channel.hpp/cpp para tu Compañero
-
-📄 channel/Channel.hpp
-cpp/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   Channel.hpp                                        :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: your_login <your_login@student.42.fr>      +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/12/09 15:00:00 by your_login        #+#    #+#             */
-/*   Updated: 2025/12/09 15:00:00 by your_login        ###   ########.fr       */
+/*   Created: 2025/12/10 19:31:06 by carlsanc          #+#    #+#             */
+/*   Updated: 2025/12/10 19:31:07 by carlsanc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,31 +15,88 @@ cpp/* **************************************************************************
 
 #include <string>
 #include <vector>
-#include <set>
+#include <algorithm>
+#include <iostream>
 
 class User;
 
 /**
- * Channel: IRC Channel management
- * 
- * Responsibilities:
- * - Member management (users in channel)
- * - Operator privileges
- * - Channel modes (invite-only, topic-restricted, key, limit)
- * - Topic management
- * - Message broadcasting to all members
- * 
- * Channel modes to implement (42 subject):
- * - i: Invite-only
- * - t: Topic restricted to operators
- * - k: Channel key (password)
- * - o: Operator privilege
- * - l: User limit
+ * Channel: Represents an IRC Channel
+ * * Responsibilities:
+ * - Manage list of members (users inside the channel)
+ * - Manage list of operators (users with privileges)
+ * - Manage channel modes (+i, +t, +k, +l)
+ * - Broadcast messages to members
  */
+class Channel {
+    public:
+        Channel(const std::string& name);
+        ~Channel();
 
-class Channel
-{
+        /* Basic Info */
+        const std::string& getName() const;
+        const std::string& getTopic() const;
+        void setTopic(const std::string& topic);
+        
+        /* Key / Password (+k) */
+        const std::string& getKey() const;
+        void setKey(const std::string& key);
 
+        /* User Limit (+l) */
+        void setLimit(int limit);
+        int getLimit() const;
+        size_t getUserCount() const;
+
+        /* Modes Management */
+        void setMode(char mode, bool active);
+        bool hasMode(char mode) const;
+        std::string getModes() const; // Returns string like "+itk"
+
+        /* Membership Management */
+        void addMember(User* user);
+        void removeMember(User* user);
+        bool isMember(User* user) const;
+        User* getMember(const std::string& nickname); // Find user by nick inside channel
+
+        /* Operator Management (+o) */
+        void addOperator(User* user);
+        void removeOperator(User* user);
+        bool isOperator(User* user) const;
+
+        /* Invite List (+i) */
+        void addInvite(const std::string& nickname);
+        bool isInvited(User* user) const; // Checks if user's nick is in invite list
+
+        /* Communication */
+        // Sends a message to all members EXCEPT 'excludeUser' (usually the sender)
+        void broadcast(const std::string& message, User* excludeUser);
+
+        /* Utils */
+        // Returns string for RPL_NAMREPLY (e.g. "@Admin User1 User2")
+        std::string getNamesList() const;
+
+    private:
+        std::string _name;
+        std::string _topic;
+        std::string _key;
+        int _limit;
+
+        /* Modes State */
+        bool _inviteOnly;       // +i
+        bool _topicRestricted;  // +t
+        bool _keyMode;          // +k
+        bool _limitMode;        // +l
+
+        /* Lists */
+        std::vector<User*> _members;
+        std::vector<User*> _operators;
+        std::vector<std::string> _invites; // List of invited nicknames
+
+        /* Helpers */
+        // Forbidden to copy channels
+        Channel();
+        Channel(const Channel&);
+        Channel& operator=(const Channel&);
 };
 
 #endif

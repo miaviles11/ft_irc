@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   cmds_msg.cpp                                       :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: carlsanc <carlsanc@student.42madrid>       +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/12/10 20:32:52 by carlsanc          #+#    #+#             */
+/*   Updated: 2025/12/10 20:32:52 by carlsanc         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../server/Server.hpp"
 #include "../client/ClientConnection.hpp"
 #include "../client/User.hpp"
@@ -18,10 +30,15 @@ void Server::cmdPrivMsg(ClientConnection* client, const Message& msg)
         Channel* channel = getChannel(target);
         if (!channel) return sendError(client, ERR_NOSUCHCHANNEL, target);
         
-        if (channel->hasMode('n') && !channel->isMember(client->getUser()))
-             return sendError(client, ERR_CANNOTSENDTOCHAN, target);
+        // Verificación de si el canal permite mensajes externos (modo n, opcional)
+        // Por defecto en esta implementación, cualquiera puede hablar si no implementas +n explícitamente.
+        // Si implementaste +n:
+        // if (channel->hasMode('n') && !channel->isMember(client->getUser()))
+        //      return sendError(client, ERR_CANNOTSENDTOCHAN, target);
 
         std::string fullMsg = ":" + client->getUser()->getPrefix() + " PRIVMSG " + target + " :" + text + "\r\n";
+        
+        // Excluimos al emisor (el cliente ya sabe lo que escribió)
         channel->broadcast(fullMsg, client->getUser());
     }
     else
@@ -42,6 +59,7 @@ void Server::cmdPrivMsg(ClientConnection* client, const Message& msg)
 
 void Server::cmdNotice(ClientConnection* client, const Message& msg)
 {
+    // NOTICE no debe enviar respuestas de error según RFC
     if (!client->isRegistered() || msg.params.size() < 2) return;
 
     std::string target = msg.params[0];

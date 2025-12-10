@@ -1,7 +1,19 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   cmds_auth.cpp                                      :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: carlsanc <carlsanc@student.42madrid>       +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/12/10 20:32:08 by carlsanc          #+#    #+#             */
+/*   Updated: 2025/12/10 20:32:08 by carlsanc         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../server/Server.hpp"
 #include "../client/ClientConnection.hpp"
 #include "../client/User.hpp"
-#include "../channel/Channel.hpp" // Necesario para el broadcast de NICK
+#include "../channel/Channel.hpp"
 #include "CommandHelpers.hpp"
 #include "../irc/NumericReplies.hpp"
 
@@ -30,18 +42,18 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
 
     std::string newNick = msg.params[0];
 
-    // Validar caracteres
+    // Caracteres permitidos (RFC 2812)
     if (newNick.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]{}\\|-_^") != std::string::npos)
         return sendError(client, ERR_ERRONEUSNICKNAME, newNick);
 
-    // Verificar colisiones
+    // Verificar si ya existe
     for (size_t i = 0; i < clients_.size(); ++i)
     {
         if (clients_[i] != client && clients_[i]->getUser() && clients_[i]->getUser()->getNickname() == newNick)
             return sendError(client, ERR_NICKNAMEINUSE, newNick);
     }
 
-    // BROADCAST REAL A CANALES
+    // Notificar cambio (si ya estaba registrado)
     if (client->isRegistered())
     {
         std::string oldPrefix = client->getUser()->getPrefix();
@@ -52,7 +64,9 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
         const std::vector<Channel*>& channels = client->getUser()->getChannels();
         for (size_t i = 0; i < channels.size(); ++i)
         {
-            channels[i]->broadcast(notification, client->getUser());
+            // Pasar 'client->getUser()' como excepción para no enviárselo dos veces si broadcast lo maneja
+            // Pero NICK es especial, mejor que todos lo reciban.
+            channels[i]->broadcast(notification, NULL); 
         }
     }
 
@@ -78,6 +92,7 @@ void Server::cmdUser(ClientConnection* client, const Message& msg)
 void Server::cmdQuit(ClientConnection* client, const Message& msg)
 {
     std::string reason = (msg.params.empty()) ? "Client Quit" : msg.params[0];
+    // La desconexión real sucede en el bucle principal cuando detecta el flag closed
     (void)reason; 
     client->closeConnection();
 }

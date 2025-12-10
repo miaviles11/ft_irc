@@ -6,7 +6,7 @@
 /*   By: carlsanc <carlsanc@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/03 17:15:15 by miaviles          #+#    #+#             */
-/*   Updated: 2025/12/10 19:49:17 by carlsanc         ###   ########.fr       */
+/*   Updated: 2025/12/10 20:33:59 by carlsanc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -441,9 +441,18 @@ void Server::processClientCommands(ClientConnection* client)
 
 void Server::sendPendingData(ClientConnection* client)
 {
- 	//TODO
-}
+    const std::string& data = client->getSendBuffer();
+    if (data.empty()) return;
 
+    // Enviar datos usando SocketUtils o send directamente
+    ssize_t bytesSent = send(client->getFd(), data.c_str(), data.length(), 0);
+
+    if (bytesSent > 0)
+    {
+        // Limpiar del buffer los bytes que ya se enviaron
+        client->clearSentData(bytesSent);
+    }
+}
 //* ============================================================================
 //* UTILITIES
 //* ============================================================================

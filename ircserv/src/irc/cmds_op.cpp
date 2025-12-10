@@ -1,3 +1,15 @@
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   cmds_op.cpp                                        :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: carlsanc <carlsanc@student.42madrid>       +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2025/12/10 20:32:35 by carlsanc          #+#    #+#             */
+/*   Updated: 2025/12/10 20:32:35 by carlsanc         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
+
 #include "../server/Server.hpp"
 #include "../client/ClientConnection.hpp"
 #include "../client/User.hpp"
@@ -18,15 +30,20 @@ void Server::cmdKick(ClientConnection* client, const Message& msg)
     Channel* channel = getChannel(chanName);
     if (!channel) return sendError(client, ERR_NOSUCHCHANNEL, chanName);
 
+    // Verificar privilegios
     if (!channel->isOperator(client->getUser()))
         return sendError(client, ERR_CHANOPRIVSNEEDED, chanName);
 
+    // Verificar si el usuario objetivo está en el canal
     User* targetUser = channel->getMember(targetNick);
-    if (!targetUser) return sendError(client, ERR_USERNOTINCHANNEL, targetNick + " " + chanName);
+    if (!targetUser) 
+        return sendError(client, ERR_USERNOTINCHANNEL, targetNick + " " + chanName);
 
+    // Broadcast del KICK a todos en el canal
     std::string kickMsg = ":" + client->getUser()->getPrefix() + " KICK " + chanName + " " + targetNick + " :" + comment + "\r\n";
     channel->broadcast(kickMsg, NULL);
 
+    // Eliminar efectivamente
     channel->removeMember(targetUser);
     targetUser->leaveChannel(channel);
 }
@@ -53,6 +70,7 @@ void Server::cmdInvite(ClientConnection* client, const Message& msg)
         channel->addInvite(targetNick);
     }
 
+    // Buscar al usuario destino globalmente en el servidor
     User* dest = NULL;
     for (size_t i = 0; i < clients_.size(); ++i) {
         if (clients_[i]->isRegistered() && clients_[i]->getUser()->getNickname() == targetNick) {
@@ -74,7 +92,7 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
 
     std::string target = msg.params[0];
     
-    // MODO USUARIO
+    // --- MODO USUARIO (Solo +i) ---
     if (target[0] != '#')
     {
         if (target != client->getUser()->getNickname())
@@ -83,16 +101,20 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
             return;
         }
         
+        // Consulta de modos
         if (msg.params.size() == 1)
         {
             std::string modes = "+";
             if (client->getUser()->isInvisible()) modes += "i";
-            sendReply(client, "221", modes);
+            sendReply(client, RPL_UMODEIS, modes);
             return;
         }
 
+        // Cambio de modos
         std::string modeString = msg.params[1];
         char action = '+';
+        std::string appliedModes = "";
+        
         for (size_t i = 0; i < modeString.length(); ++i)
         {
             if (modeString[i] == '+' || modeString[i] == '-') {
@@ -100,15 +122,23 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 continue;
             }
             if (modeString[i] == 'i') {
-                client->getUser()->setInvisible(action == '+');
+                bool newC = (action == '+');
+                if (client->getUser()->isInvisible() != newC) {
+                    client->getUser()->setInvisible(newC);
+                    if (appliedModes.find(action) == std::string::npos) // Evitar duplicar signo
+                        appliedModes += action;
+                    appliedModes += 'i';
+                }
             }
         }
-        std::string modeMsg = ":" + client->getUser()->getPrefix() + " MODE " + target + " :" + modeString + "\r\n";
-        client->queueSend(modeMsg);
+        if (!appliedModes.empty()) {
+            std::string modeMsg = ":" + client->getUser()->getPrefix() + " MODE " + target + " :" + appliedModes + "\r\n";
+            client->queueSend(modeMsg);
+        }
         return;
     }
 
-    // MODO CANAL
+    // --- MODO CANAL ---
     Channel* channel = getChannel(target);
     if (!channel) return sendError(client, ERR_NOSUCHCHANNEL, target);
 
@@ -121,7 +151,7 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
         return sendError(client, ERR_CHANOPRIVSNEEDED, target);
 
     std::string modeString = msg.params[1];
-    size_t paramIdx = 2;
+    size_t paramIdx = 2; // Índice para argumentos extra (claves, usuarios, limites)
     char action = '+';
 
     for (size_t i = 0; i < modeString.length(); ++i)
@@ -133,18 +163,23 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
             continue;
         }
 
+        // o: Operator
         if (mode == 'o') {
             if (paramIdx >= msg.params.size()) continue;
             std::string targetNick = msg.params[paramIdx++];
             User* targetUser = channel->getMember(targetNick);
             
+            // Si el usuario no existe en el canal, ignoramos silenciosamente o podríamos mandar error
             if (targetUser) {
                 if (action == '+') channel->addOperator(targetUser);
                 else channel->removeOperator(targetUser);
                 
                 channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "o " + targetNick + "\r\n", NULL);
+            } else {
+                 sendError(client, ERR_USERNOTINCHANNEL, targetNick + " " + target);
             }
         }
+        // k: Key
         else if (mode == 'k') {
             if (action == '+') {
                 if (paramIdx >= msg.params.size()) continue;
@@ -156,6 +191,7 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "k" + "\r\n", NULL);
             }
         }
+        // l: Limit
         else if (mode == 'l') {
             if (action == '+') {
                 if (paramIdx >= msg.params.size()) continue;
@@ -169,6 +205,7 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "l" + "\r\n", NULL);
             }
         }
+        // i: Invite Only | t: Topic Restricted
         else if (mode == 'i' || mode == 't') {
             channel->setMode(mode, (action == '+'));
             std::string mStr(1, mode);

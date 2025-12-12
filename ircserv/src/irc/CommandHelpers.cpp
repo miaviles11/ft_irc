@@ -13,6 +13,7 @@
 #include "CommandHelpers.hpp"
 #include "../client/User.hpp"
 #include "../irc/NumericReplies.hpp"
+#include "../../srcs/utils/Colors.hpp"
 #include <iostream>
 #include <sstream>
 
@@ -78,6 +79,9 @@ void checkRegistration(ClientConnection* client)
         sendReply(client, RPL_CREATED, ":This server was created today");
         sendReply(client, RPL_MYINFO, "ft_irc 1.0 io tkl"); // Modos soportados
         
-        std::cout << "[SERVER] User registered: " << user->getNickname() << std::endl;
+        std::cout << BRIGHT_GREEN << "[REGISTERED]" << RESET 
+                  << " User: " << CYAN << user->getNickname() << RESET 
+                  << " (" << user->getUsername() << "@" << user->getHostname() << ")" 
+                  << std::endl;
     }
 }

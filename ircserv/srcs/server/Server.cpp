@@ -16,7 +16,6 @@
 #include "../channel/Channel.hpp"
 #include "../net/SocketUtils.hpp"
 #include "../irc/Parser.hpp"
-#include "../../srcs/utils/Colors.hpp"
 
 #include <unistd.h>
 #include <cerrno>
@@ -225,10 +224,8 @@ void Server::acceptNewConnections()
 			":ft_irc NOTICE * :***   3. USER <username> 0 * :<realname>\r\n";
 		connection->queueSend(welcome);
 
-		std::cout << GREEN << "[CONNECT]" << RESET 
-				  << " New client from " << CYAN << client_ip << RESET
-				  << " (fd=" << client_fd << ", total=" << clients_.size() << ")" 
-				  << std::endl;
+		std::cout << "[SERVER] ✓ New client from " << client_ip 
+				  << " (fd=" << client_fd << ", total=" << clients_.size() << ")" << std::endl;
 	}
 }
 
@@ -263,8 +260,7 @@ bool Server::handleClientEvent(size_t poll_index)
     // 1. GESTIÓN DE ERRORES DE POLL
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
     {
-        std::cout << YELLOW << "[DISCONNECT]" << RESET 
-                  << " fd=" << fd << " (POLLHUP/ERR)" << std::endl;
+        std::cout << "[SERVER] Client fd=" << fd << " disconnected (POLLHUP/ERR)" << std::endl;
         
         // [FIX RACE] Procesar datos pendientes antes de desconectar
         if (client->hasCompleteLine()) {
@@ -315,8 +311,7 @@ bool Server::handleClientEvent(size_t poll_index)
         else if (bytes == 0) // Conexión cerrada por el par
         {
             // [FIX RACE] Procesar buffer antes de desconectar
-            std::cout << YELLOW << "[DISCONNECT]" << RESET 
-                      << " fd=" << fd << " (graceful close)" << std::endl;
+            std::cout << "[SERVER] Client fd=" << fd << " closed connection" << std::endl;
             
             // Si hay datos pendientes en el buffer, procesarlos primero
             if (client->hasCompleteLine()) {
@@ -374,8 +369,7 @@ void Server::disconnectClient(size_t poll_index)
     int fd = poll_fds_[poll_index].fd;
     ClientConnection* client = findClientByFd(fd);
 
-    std::cout << YELLOW << "[CLEANUP]" << RESET 
-              << " Disconnecting client fd=" << fd << std::endl;
+    std::cout << "[SERVER] Disconnecting client fd=" << fd << std::endl;
 
     // 2. Si el cliente existe, limpiar lógica de IRC y objetos
     if (client)
@@ -456,13 +450,8 @@ void Server::processClientCommands(ClientConnection* client)
     {
         std::string rawLine = client->popLine();
         
-        // Log colorizado del comando
-        std::string nick = client->getUser() && !client->getUser()->getNickname().empty() 
-                          ? client->getUser()->getNickname() 
-                          : std::string(BRIGHT_BLACK) + "*" + RESET;
-        std::cout << BLUE << "[CMD]" << RESET << " " 
-                  << MAGENTA << nick << RESET << ": " 
-                  << WHITE << rawLine << RESET << std::endl;
+        // Debug opcional
+        // std::cout << "[DEBUG] < " << rawLine << std::endl;
 
         // 1. Parseamos la línea
         Message msg = Parser::parse(rawLine);
@@ -482,8 +471,9 @@ void Server::processClientCommands(ClientConnection* client)
         else
         {
             // COMANDO NO ENCONTRADO
-            std::cout << BRIGHT_RED << "[WARNING]" << RESET 
-                      << " Unknown command from " << nick << ": " << msg.command << std::endl;
+            // Deberia enviar ERR_UNKNOWNCOMMAND (421)
+            // Por ahora, un log simple:
+            std::cerr << "[SERVER] Unknown command: " << msg.command << std::endl;
         }
     }
 }

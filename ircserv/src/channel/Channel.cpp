@@ -3,6 +3,7 @@
 #include "../client/ClientConnection.hpp"
 #include <algorithm>
 #include <iostream>
+#include <cstdio>
 
 // ============================================================================
 // CONSTRUCTOR / DESTRUCTOR

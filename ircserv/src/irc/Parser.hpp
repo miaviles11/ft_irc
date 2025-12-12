@@ -22,6 +22,8 @@ class Parser {
         static Message parse(const std::string& rawLine);
     private:
         Parser(); // No instanciable
+        static std::string trim(const std::string& str);
+        static std::string toUpper(const std::string& str);
 };
 
 #endif

@@ -13,6 +13,7 @@
 #include "CommandHelpers.hpp"
 #include "../client/User.hpp"
 #include "../irc/NumericReplies.hpp"
+#include "../utils/Colors.hpp"
 #include <iostream>
 #include <sstream>
 
@@ -72,12 +73,12 @@ void checkRegistration(ClientConnection* client)
     if (client->hasSentPass() && !user->getNickname().empty() && !user->getUsername().empty())
     {
         client->setRegistered(true);
-        // Mensajes de bienvenida estándar
-        sendReply(client, RPL_WELCOME, ":Welcome to the FT_IRC Network " + user->getPrefix());
-        sendReply(client, RPL_YOURHOST, ":Your host is ft_irc, running version 1.0");
-        sendReply(client, RPL_CREATED, ":This server was created today");
-        sendReply(client, RPL_MYINFO, "ft_irc 1.0 io tkl"); // Modos soportados
+        // Mensajes de bienvenida estándar con colores
+        sendReply(client, RPL_WELCOME, std::string(":") + BRIGHT_GREEN + "Welcome to the FT_IRC Network " + MAGENTA + user->getPrefix() + RESET);
+        sendReply(client, RPL_YOURHOST, std::string(":") + CYAN + "Your host is ft_irc, running version 1.0" + RESET);
+        sendReply(client, RPL_CREATED, std::string(":") + CYAN + "This server was created today" + RESET);
+        sendReply(client, RPL_MYINFO, std::string(CYAN) + "ft_irc 1.0 io tkl" + RESET); // Modos soportados
         
-        std::cout << "[SERVER] User registered: " << user->getNickname() << std::endl;
+        std::cout << BRIGHT_GREEN << "[SERVER] User registered: " << MAGENTA << user->getNickname() << RESET << std::endl;
     }
 }

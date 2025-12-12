@@ -16,6 +16,7 @@
 #include "../channel/Channel.hpp"
 #include "../net/SocketUtils.hpp"
 #include "../irc/Parser.hpp"
+#include "../utils/Colors.hpp"
 
 #include <unistd.h>
 #include <cerrno>
@@ -32,12 +33,12 @@ Server::Server(int port, const std::string& password) : port_(port),
 	password_(password), server_fd_(-1), running_(false)
 {
 	initCommands();
-    std::cout << "[SERVER] Initializing on port " << port << std::endl;	
+    std::cout << CYAN << "[SERVER] Initializing on port " << port << RESET << std::endl;	
 }
 
 Server::~Server()
 {
-    std::cout << "[SERVER] Shutting down..." << std::endl;
+    std::cout << YELLOW << "[SERVER] Shutting down..." << RESET << std::endl;
 
 	//* CLOSE SERVER SOCKET
 	if (server_fd_ >= 0)
@@ -91,7 +92,7 @@ bool Server::setupServerSocket()
 
 bool Server::start()
 {
-	std::cout << "[SERVER] Starting..." << std::endl;
+	std::cout << CYAN << "[SERVER] Starting..." << RESET << std::endl;
 
 	if (!setupServerSocket())
 		return (false);
@@ -104,7 +105,7 @@ bool Server::start()
 	poll_fds_.push_back(server_pfd);       //* Add to vector so poll() can monitor server socket + all client sockets together (MULTIPLE USERS!)
 	
 	running_ = true;
-	std::cout << "[SERVER] ✓ Ready on port " << port_ << std::endl;
+	std::cout << GREEN << "[SERVER] ✓ Ready on port " << port_ << RESET << std::endl;
 	return (true);
 }
 
@@ -119,7 +120,7 @@ void Server::stop()
 
 void Server::run()
 {
-    std::cout << "[SERVER] Main loop started" << std::endl;
+    std::cout << CYAN << "[SERVER] Main loop started" << RESET << std::endl;
 
 	while (running_)
 	{
@@ -163,7 +164,7 @@ void Server::run()
             }
         }
     }
-    std::cout << "[SERVER] Main loop ended" << std::endl;
+    std::cout << YELLOW << "[SERVER] Main loop ended" << RESET << std::endl;
 }
 
 //* ============================================================================
@@ -217,15 +218,15 @@ void Server::acceptNewConnections()
 
 		//* SEND WELCOME MESSAGE with authentication instructions
 		std::string welcome = 
-			":ft_irc NOTICE * :*** Welcome to ft_irc!\r\n"
-			":ft_irc NOTICE * :*** To get started, please authenticate:\r\n"
-			":ft_irc NOTICE * :***   1. PASS <password>\r\n"
-			":ft_irc NOTICE * :***   2. NICK <your_nickname>\r\n"
-			":ft_irc NOTICE * :***   3. USER <username> 0 * :<realname>\r\n";
+			":ft_irc NOTICE * :" + std::string(BRIGHT_GREEN) + "*** Welcome to ft_irc!" + RESET + "\r\n"
+			":ft_irc NOTICE * :" + std::string(CYAN) + "*** To get started, please authenticate:" + RESET + "\r\n"
+			":ft_irc NOTICE * :" + std::string(CYAN) + "***   1. PASS <password>" + RESET + "\r\n"
+			":ft_irc NOTICE * :" + std::string(CYAN) + "***   2. NICK <your_nickname>" + RESET + "\r\n"
+			":ft_irc NOTICE * :" + std::string(CYAN) + "***   3. USER <username> 0 * :<realname>" + RESET + "\r\n";
 		connection->queueSend(welcome);
 
-		std::cout << "[SERVER] ✓ New client from " << client_ip 
-				  << " (fd=" << client_fd << ", total=" << clients_.size() << ")" << std::endl;
+		std::cout << GREEN << "[SERVER] ✓ New client from " << client_ip 
+				  << " (fd=" << client_fd << ", total=" << clients_.size() << ")" << RESET << std::endl;
 	}
 }
 
@@ -260,7 +261,7 @@ bool Server::handleClientEvent(size_t poll_index)
     // 1. GESTIÓN DE ERRORES DE POLL
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
     {
-        std::cout << "[SERVER] Client fd=" << fd << " disconnected (POLLHUP/ERR)" << std::endl;
+        std::cout << YELLOW << "[SERVER] Client fd=" << fd << " disconnected (POLLHUP/ERR)" << RESET << std::endl;
         
         // [FIX RACE] Procesar datos pendientes antes de desconectar
         if (client->hasCompleteLine()) {
@@ -293,8 +294,8 @@ bool Server::handleClientEvent(size_t poll_index)
                 }
             }
             
-            std::cout << "[RECV] fd=" << fd << " (" << bytes << " bytes): " 
-                      << displayData << std::endl;
+            std::cout << BLUE << "[RECV] fd=" << fd << " (" << bytes << " bytes): " 
+                      << displayData << RESET << std::endl;
             
             client->appendRecvData(std::string(buffer, bytes));
             client->updateActivity();
@@ -311,11 +312,11 @@ bool Server::handleClientEvent(size_t poll_index)
         else if (bytes == 0) // Conexión cerrada por el par
         {
             // [FIX RACE] Procesar buffer antes de desconectar
-            std::cout << "[SERVER] Client fd=" << fd << " closed connection" << std::endl;
+            std::cout << YELLOW << "[SERVER] Client fd=" << fd << " closed connection" << RESET << std::endl;
             
             // Si hay datos pendientes en el buffer, procesarlos primero
             if (client->hasCompleteLine()) {
-                std::cout << "[SERVER] Processing pending commands before disconnect..." << std::endl;
+                std::cout << CYAN << "[SERVER] Processing pending commands before disconnect..." << RESET << std::endl;
                 processClientCommands(client);
             }
             
@@ -326,7 +327,7 @@ bool Server::handleClientEvent(size_t poll_index)
         {
             if (errno != EAGAIN && errno != EWOULDBLOCK)
             {
-                std::cerr << "[SERVER] recv() error on fd=" << fd << ": " << strerror(errno) << std::endl;
+                std::cerr << BRIGHT_RED << "[SERVER] recv() error on fd=" << fd << ": " << strerror(errno) << RESET << std::endl;
                 disconnectClient(poll_index);
                 return false; // Cliente eliminado
             }
@@ -369,7 +370,7 @@ void Server::disconnectClient(size_t poll_index)
     int fd = poll_fds_[poll_index].fd;
     ClientConnection* client = findClientByFd(fd);
 
-    std::cout << "[SERVER] Disconnecting client fd=" << fd << std::endl;
+    std::cout << YELLOW << "[SERVER] Disconnecting client fd=" << fd << RESET << std::endl;
 
     // 2. Si el cliente existe, limpiar lógica de IRC y objetos
     if (client)

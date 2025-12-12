@@ -11,6 +11,7 @@
 /* ************************************************************************** */
 
 #include "SocketUtils.hpp"
+#include "../utils/Colors.hpp"
 #include <iostream>
 #include <cerrno>
 #include <unistd.h>
@@ -29,12 +30,12 @@ bool	SocketUtils::setNonBlocking(int fd)
 	int flags = fcntl(fd, F_GETFL, 0); 					//* "fcntl is used to manipulated FDs, in this case in F_GETFL mode is to see the status of FDs"
 	if (flags == -1)
 	{
-		std::cerr << "[SOCKET] fcntl(F_GETFL) failed: " << strerror(errno) << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] fcntl(F_GETFL) failed: " << strerror(errno) << RESET << std::endl;
 		return (false);
 	}
 	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) 	//* "fcntl is used to manipulated FDs, in this case in F_SETFL mode is too set the status of FDs"
 	{
-		std::cerr << "[SOCKET] fcntl(F_SETFL, O_NONBLOCK) failed: " << strerror(errno) << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] fcntl(F_SETFL, O_NONBLOCK) failed: " << strerror(errno) << RESET << std::endl;
 		return (false);
 	}
 	return (true);
@@ -69,7 +70,7 @@ bool	SocketUtils::setReuseAddr(int fd)
 
 	if (setsockopt(fd, SOL_SOCKET,  SO_REUSEADDR, &opt, sizeof(opt)) == -1)
 	{
-		std::cerr << "[SOCKET] setsockopt(SO_REUSEADDR) failed: " << strerror(errno) << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] setsockopt(SO_REUSEADDR) failed: " << strerror(errno) << RESET << std::endl;
         return (false);
 	}
 	return (true);
@@ -88,10 +89,10 @@ int		SocketUtils::createServerSocket()
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd == -1)
 	{
-		std::cerr << "[SOCKET] socket() failed: " << strerror(errno) << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] socket() failed: " << strerror(errno) << RESET << std::endl;
 		return (-1);	
 	}
-	std::cout << "[SOCKET] Socket created (fd=" << fd << ")" << std::endl;
+	std::cout << CYAN << "[SOCKET] Socket created (fd=" << fd << ")" << RESET << std::endl;
     if (!setReuseAddr(fd)) //* Configure SO_REUSEADDR
 	{
         close(fd);
@@ -102,7 +103,7 @@ int		SocketUtils::createServerSocket()
         close(fd);
         return (-1);
     }
-    std::cout << "[SOCKET] ✓ Socket configured (non-blocking + SO_REUSEADDR)" << std::endl;
+    std::cout << GREEN << "[SOCKET] ✓ Socket configured (non-blocking + SO_REUSEADDR)" << RESET << std::endl;
     return (fd);
 }
 
@@ -124,11 +125,11 @@ bool	SocketUtils::bindSocket(int fd, int port)
 	//* Attach the socket to the port
 	if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1)
 	{
-		std::cerr << "[SOCKET] bind() failed on port " << port 
-				<< ": " << strerror(errno) << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] bind() failed on port " << port 
+				<< ": " << strerror(errno) << RESET << std::endl;
 		return (false);
 	}
-	std::cout << "[SOCKET] ✓ Bound to 0.0.0.0:" << port << std::endl;
+	std::cout << GREEN << "[SOCKET] ✓ Bound to 0.0.0.0:" << port << RESET << std::endl;
 	return (true);
 }
 
@@ -137,10 +138,10 @@ bool	SocketUtils::listenSocket(int fd, int backlog)
 {
 	if (listen(fd, backlog) == -1)						//* BACKLOG: is the max size of the queue of pending conections
 	{
-		std::cerr << "[SOCKET] listen() failed: " << strerror(errno) << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] listen() failed: " << strerror(errno) << RESET << std::endl;
 		return (false);
 	}
-	std::cout << "[SOCKET] ✓ Listening (backlog=" << backlog << ")" << std::endl;
+	std::cout << GREEN << "[SOCKET] ✓ Listening (backlog=" << backlog << ")" << RESET << std::endl;
 	return (true);
 }
 
@@ -162,7 +163,7 @@ int		SocketUtils::acceptClient(int server_fd, std::string& client_ip)
 	{
 		if (errno == EAGAIN || errno == EWOULDBLOCK)                  //* Non-blocking socket: no pending connections (not an error)
 			return (-1);
-		std::cerr << "[SOCKET] accept() failed: " << strerror(errno) << std::endl; //* Actual real error occurred
+		std::cerr << BRIGHT_RED << "[SOCKET] accept() failed: " << strerror(errno) << RESET << std::endl; //* Actual real error occurred
 		return (-1);
 	}
 	
@@ -172,13 +173,13 @@ int		SocketUtils::acceptClient(int server_fd, std::string& client_ip)
 	
 	if (!setNonBlocking(client_fd))                                   //* Configure client socket to non-blocking mode
 	{
-		std::cerr << "[SOCKET] Failed to set client socket non-blocking" << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] Failed to set client socket non-blocking" << RESET << std::endl;
 		close(client_fd);                                             //* Close socket to prevent resource leak
 		return (-1);
 	}
 	
-	std::cout << "[SOCKET] ✓ Accepted connection from " << client_ip  //* Log successful connection
-			<< " (fd=" << client_fd << ")" << std::endl;
+	std::cout << GREEN << "[SOCKET] ✓ Accepted connection from " << client_ip  //* Log successful connection
+			<< " (fd=" << client_fd << ")" << RESET << std::endl;
 	
 	return (client_fd);                                               //* Return valid client socket file descriptor
 }
@@ -207,12 +208,12 @@ ssize_t	SocketUtils::receiveData(int fd, char* buffer, size_t size)
 		if (errno == EAGAIN || errno == EWOULDBLOCK) 		//* No data available right now (normal in non-blocking mode)
 			return (-1); 									//* Not an error, just try again later
 
-		std::cerr << "[SOCKET] recv() failed on fd=" << fd  //* Real error occurred
-				<< ": " << strerror(errno) << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] recv() failed on fd=" << fd  //* Real error occurred
+				<< ": " << strerror(errno) << RESET << std::endl;
 		return (-1);
 	}
 	if (bytes == 0) 										//* Connection closed cleanly by peer
-		std::cout << "[SOCKET] Connection closed by peer (fd=" << fd << ")" << std::endl;
+		std::cout << YELLOW << "[SOCKET] Connection closed by peer (fd=" << fd << ")" << RESET << std::endl;
 	
 	return (bytes); 										//* Return number of bytes received
 }
@@ -237,8 +238,8 @@ ssize_t	SocketUtils::sendData(int fd, const char* data, size_t size)
 		if (errno == EAGAIN || errno == EWOULDBLOCK)        //* Send buffer full (normal in non-blocking mode)
 			return (-1);                                    //* Not an error, retry later with POLLOUT
 		
-		std::cerr << "[SOCKET] send() failed on fd=" << fd  //* Real error occurred
-				<< ": " << strerror(errno) << std::endl;
+		std::cerr << BRIGHT_RED << "[SOCKET] send() failed on fd=" << fd  //* Real error occurred
+				<< ": " << strerror(errno) << RESET << std::endl;
 		return (-1);
 	}
 	

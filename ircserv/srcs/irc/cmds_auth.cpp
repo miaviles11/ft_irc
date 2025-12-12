@@ -16,6 +16,7 @@
 #include "../channel/Channel.hpp"
 #include "CommandHelpers.hpp"
 #include "../irc/NumericReplies.hpp"
+#include "../utils/Colors.hpp"
 #include <set> // Necesario para evitar spam en NICK
 
 // ============================================================================
@@ -37,7 +38,7 @@ void Server::cmdPass(ClientConnection* client, const Message& msg)
 {
     if (msg.params.empty()) 
     {
-        sendServerNotice(client, "*** Syntax: PASS <password>");
+        sendServerNotice(client, std::string(CYAN) + "*** Syntax: PASS <password>" + RESET);
         return sendError(client, ERR_NEEDMOREPARAMS, "PASS");
     }
     
@@ -49,8 +50,8 @@ void Server::cmdPass(ClientConnection* client, const Message& msg)
 
     if (msg.params[0] != this->password_)
     {
-        sendServerNotice(client, "*** ERROR: Incorrect password. Connection will be closed.");
-        sendServerNotice(client, "*** Please reconnect with the correct password.");
+        sendServerNotice(client, std::string(BRIGHT_RED) + "*** ERROR: Incorrect password. Connection will be closed." + RESET);
+        sendServerNotice(client, std::string(BRIGHT_RED) + "*** Please reconnect with the correct password." + RESET);
         sendError(client, ERR_PASSWDMISMATCH, "");
         client->closeConnection();
         return;
@@ -58,16 +59,16 @@ void Server::cmdPass(ClientConnection* client, const Message& msg)
 
     // Password accepted
     client->markPassReceived();
-    sendServerNotice(client, "*** Password accepted. Please identify yourself:");
-    sendServerNotice(client, "*** Use: NICK <your_nickname>");
-    sendServerNotice(client, "*** Then: USER <username> 0 * :<realname>");
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "*** Password accepted. Please identify yourself:" + RESET);
+    sendServerNotice(client, std::string(CYAN) + "*** Use: NICK <your_nickname>" + RESET);
+    sendServerNotice(client, std::string(CYAN) + "*** Then: USER <username> 0 * :<realname>" + RESET);
 }
 
 void Server::cmdNick(ClientConnection* client, const Message& msg)
 {
     if (msg.params.empty())
     {
-        sendServerNotice(client, "*** Syntax: NICK <nickname>");
+        sendServerNotice(client, std::string(CYAN) + "*** Syntax: NICK <nickname>" + RESET);
         return sendError(client, ERR_NONICKNAMEGIVEN, "");
     }
 
@@ -76,7 +77,7 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
     // Caracteres permitidos (RFC 2812)
     if (newNick.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]{}\\|-_^") != std::string::npos)
     {
-        sendServerNotice(client, "*** ERROR: Invalid nickname. Use only letters, numbers, and -_[]{}\\|^");
+        sendServerNotice(client, std::string(BRIGHT_RED) + "*** ERROR: Invalid nickname. Use only letters, numbers, and -_[]{}\\|^" + RESET);
         return sendError(client, ERR_ERRONEUSNICKNAME, newNick);
     }
 
@@ -85,7 +86,7 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
     {
         if (clients_[i] != client && clients_[i]->getUser() && clients_[i]->getUser()->getNickname() == newNick)
         {
-            sendServerNotice(client, "*** ERROR: Nickname '" + newNick + "' is already in use. Try another.");
+            sendServerNotice(client, std::string(BRIGHT_RED) + "*** ERROR: Nickname '" + newNick + "' is already in use. Try another." + RESET);
             return sendError(client, ERR_NICKNAMEINUSE, newNick);
         }
     }
@@ -119,16 +120,16 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
             (*it)->queueSend(notification);
         }
         
-        sendServerNotice(client, "*** Nickname changed to: " + newNick);
+        sendServerNotice(client, std::string(BRIGHT_GREEN) + "*** Nickname changed to: " + MAGENTA + newNick + RESET);
     }
     else if (!client->hasSentPass())
     {
-        sendServerNotice(client, "*** Please authenticate first with: PASS <password>");
+        sendServerNotice(client, std::string(YELLOW) + "*** Please authenticate first with: PASS <password>" + RESET);
     }
     else
     {
-        sendServerNotice(client, "*** Nickname set to: " + newNick);
-        sendServerNotice(client, "*** Next step: USER <username> 0 * :<realname>");
+        sendServerNotice(client, std::string(BRIGHT_GREEN) + "*** Nickname set to: " + MAGENTA + newNick + RESET);
+        sendServerNotice(client, std::string(CYAN) + "*** Next step: USER <username> 0 * :<realname>" + RESET);
     }
 
     // Aplicar el cambio
@@ -140,19 +141,19 @@ void Server::cmdUser(ClientConnection* client, const Message& msg)
 {
     if (client->isRegistered())
     {
-        sendServerNotice(client, "*** You are already registered");
+        sendServerNotice(client, std::string(YELLOW) + "*** You are already registered" + RESET);
         return sendError(client, ERR_ALREADYREGISTRED, "");
     }
 
     if (msg.params.size() < 4)
     {
-        sendServerNotice(client, "*** Syntax: USER <username> 0 * :<realname>");
+        sendServerNotice(client, std::string(CYAN) + "*** Syntax: USER <username> 0 * :<realname>" + RESET);
         return sendError(client, ERR_NEEDMOREPARAMS, "USER");
     }
 
     if (!client->hasSentPass())
     {
-        sendServerNotice(client, "*** Please authenticate first with: PASS <password>");
+        sendServerNotice(client, std::string(YELLOW) + "*** Please authenticate first with: PASS <password>" + RESET);
         return;
     }
 
@@ -160,8 +161,8 @@ void Server::cmdUser(ClientConnection* client, const Message& msg)
     user->setUsername(msg.params[0]);
     user->setRealname(msg.params[3]);
     
-    sendServerNotice(client, "*** Registration complete! Welcome to ft_irc.");
-    sendServerNotice(client, "*** Available commands: JOIN, PRIVMSG, PART, TOPIC, MODE, KICK, INVITE, QUIT");
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "*** Registration complete! Welcome to ft_irc." + RESET);
+    sendServerNotice(client, std::string(CYAN) + "*** Available commands: JOIN, PRIVMSG, PART, TOPIC, MODE, KICK, INVITE, QUIT" + RESET);
     
     checkRegistration(client);
 }

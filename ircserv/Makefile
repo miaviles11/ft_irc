@@ -1,15 +1,15 @@
 NAME = ircserv
 CXX = c++
 
-# Detectar todas las carpetas dentro de src/ para los includes (-I)
+# Detectar todas las carpetas dentro de srcs/ para los includes (-I)
 # Esto permite hacer #include "Server.hpp" desde main.cpp sin errores
-INC_DIRS = $(shell find src -type d)
+INC_DIRS = $(shell find srcs -type d)
 INC_FLAGS = $(addprefix -I,$(INC_DIRS))
 
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98 $(INC_FLAGS) -MMD -MP
 
 # Buscar todos los .cpp automáticamente
-SRC = $(shell find src -name '*.cpp')
+SRC = $(shell find srcs -name '*.cpp')
 OBJ = $(SRC:.cpp=.o)
 DEPS = $(OBJ:.o=.d)
 

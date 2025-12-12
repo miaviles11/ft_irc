@@ -1,6 +1,7 @@
 #include "Channel.hpp"
 #include "../client/User.hpp"
 #include "../client/ClientConnection.hpp"
+#include "../utils/Colors.hpp"
 #include <algorithm>
 #include <iostream>
 #include <cstdio>
@@ -203,11 +204,13 @@ std::string Channel::getNamesList() const
     {
         if (i > 0) list += " ";
         
-        // Prefijo de operador
+        // Prefijo de operador con color
         if (isOperator(_members[i]))
-            list += "@";
+            list += std::string(BRIGHT_RED) + "@" + MAGENTA;
+        else
+            list += std::string(GREEN);
         
-        list += _members[i]->getNickname();
+        list += _members[i]->getNickname() + RESET;
     }
     return list;
 }

@@ -16,6 +16,7 @@
 #include "../channel/Channel.hpp"
 #include "CommandHelpers.hpp"
 #include "../irc/NumericReplies.hpp"
+#include "../utils/Colors.hpp"
 
 // NOTA: Estas funciones son miembros de Server, pero están implementadas aquí
 // para organizar el código por temática.
@@ -112,14 +113,14 @@ void Server::cmdJoin(ClientConnection* client, const Message& msg)
 
         // Enviar Topic
         if (channel->getTopic().empty())
-            sendReply(client, RPL_NOTOPIC, chanName + " :No topic is set");
+            sendReply(client, RPL_NOTOPIC, chanName + std::string(" :") + YELLOW + "No topic is set" + RESET);
         else
-            sendReply(client, RPL_TOPIC, chanName + " :" + channel->getTopic());
+            sendReply(client, RPL_TOPIC, chanName + std::string(" :") + CYAN + channel->getTopic() + RESET);
 
         // Enviar lista de Nombres (RPL_NAMREPLY)
         std::string symbol = "="; // Canal público
-        sendReply(client, RPL_NAMREPLY, symbol + " " + chanName + " :" + channel->getNamesList());
-        sendReply(client, RPL_ENDOFNAMES, chanName + " :End of /NAMES list");
+        sendReply(client, RPL_NAMREPLY, symbol + " " + chanName + std::string(" :") + GREEN + channel->getNamesList() + RESET);
+        sendReply(client, RPL_ENDOFNAMES, chanName + std::string(" :") + CYAN + "End of /NAMES list" + RESET);
     }
 }
 
@@ -189,9 +190,9 @@ void Server::cmdTopic(ClientConnection* client, const Message& msg)
     if (msg.params.size() == 1)
     {
         if (channel->getTopic().empty())
-            sendReply(client, RPL_NOTOPIC, channel->getName() + " :No topic is set");
+            sendReply(client, RPL_NOTOPIC, channel->getName() + std::string(" :") + YELLOW + "No topic is set" + RESET);
         else
-            sendReply(client, RPL_TOPIC, channel->getName() + " :" + channel->getTopic());
+            sendReply(client, RPL_TOPIC, channel->getName() + std::string(" :") + CYAN + channel->getTopic() + RESET);
         return;
     }
 

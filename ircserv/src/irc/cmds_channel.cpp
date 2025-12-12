@@ -125,7 +125,10 @@ void Server::cmdJoin(ClientConnection* client, const Message& msg)
 
 void Server::cmdPart(ClientConnection* client, const Message& msg)
 {
-    if (!client->isRegistered()) return;
+    if (!client->isRegistered()) {
+        sendError(client, ERR_NOTREGISTERED, "");
+        return;
+    }
     if (msg.params.empty()) return sendError(client, ERR_NEEDMOREPARAMS, "PART");
 
     std::vector<std::string> targets = split(msg.params[0], ',');
@@ -173,7 +176,10 @@ void Server::cmdPart(ClientConnection* client, const Message& msg)
 
 void Server::cmdTopic(ClientConnection* client, const Message& msg)
 {
-    if (!client->isRegistered()) return;
+    if (!client->isRegistered()) {
+        sendError(client, ERR_NOTREGISTERED, "");
+        return;
+    }
     if (msg.params.empty()) return sendError(client, ERR_NEEDMOREPARAMS, "TOPIC");
 
     Channel* channel = getChannel(msg.params[0]);

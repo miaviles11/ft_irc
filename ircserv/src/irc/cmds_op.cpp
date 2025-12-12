@@ -22,6 +22,10 @@
 
 void Server::cmdKick(ClientConnection* client, const Message& msg)
 {
+    if (!client->isRegistered()) {
+        sendError(client, ERR_NOTREGISTERED, "");
+        return;
+    }
     if (msg.params.size() < 2) return sendError(client, ERR_NEEDMOREPARAMS, "KICK");
     
     std::string chanName = msg.params[0];
@@ -51,6 +55,10 @@ void Server::cmdKick(ClientConnection* client, const Message& msg)
 
 void Server::cmdInvite(ClientConnection* client, const Message& msg)
 {
+    if (!client->isRegistered()) {
+        sendError(client, ERR_NOTREGISTERED, "");
+        return;
+    }
     if (msg.params.size() < 2) return sendError(client, ERR_NEEDMOREPARAMS, "INVITE");
 
     std::string targetNick = msg.params[0];
@@ -89,6 +97,10 @@ void Server::cmdInvite(ClientConnection* client, const Message& msg)
 
 void Server::cmdMode(ClientConnection* client, const Message& msg)
 {
+    if (!client->isRegistered()) {
+        sendError(client, ERR_NOTREGISTERED, "");
+        return;
+    }
     if (msg.params.size() < 1) return sendError(client, ERR_NEEDMOREPARAMS, "MODE");
 
     std::string target = msg.params[0];

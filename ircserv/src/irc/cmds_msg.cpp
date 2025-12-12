@@ -19,7 +19,10 @@
 
 void Server::cmdPrivMsg(ClientConnection* client, const Message& msg)
 {
-    if (!client->isRegistered()) return;
+    if (!client->isRegistered()) {
+        sendError(client, ERR_NOTREGISTERED, "");
+        return;
+    }
     if (msg.params.size() < 2) return sendError(client, ERR_NEEDMOREPARAMS, "PRIVMSG");
 
     std::string target = msg.params[0];

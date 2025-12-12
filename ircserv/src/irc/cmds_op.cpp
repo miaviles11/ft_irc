@@ -192,20 +192,19 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 channel->setKey(key);
                 channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "k " + key + "\r\n", NULL);
             } else {
-                // [FIX RFC] Para quitar la clave (-k), se debe proporcionar la clave actual correcta
-                if (paramIdx >= msg.params.size()) {
-                    sendError(client, ERR_NEEDMOREPARAMS, "MODE"); // O simplemente ignorar
+                // [FIX RFC] Modo permisivo: permite -k sin parámetro para OPs
+                std::string keyParam = "";
+                if (paramIdx < msg.params.size())
+                    keyParam = msg.params[paramIdx++];
+                
+                // Solo verificar si se proporcionó clave
+                if (!keyParam.empty() && channel->getKey() != keyParam) {
+                    sendError(client, ERR_BADCHANNELKEY, channel->getName());
                     continue;
                 }
-                std::string keyParam = msg.params[paramIdx++];
-
-                // Verificamos si la clave coincide
-                if (channel->getKey() == keyParam) {
-                    channel->setKey(""); 
-                    channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "k *\r\n", NULL);
-                } else {
-                    sendError(client, ERR_BADCHANNELKEY, channel->getName());
-                }
+                
+                channel->setKey("");
+                channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " -k *\r\n", NULL);
             }
         }
         // l: Limit
@@ -216,7 +215,10 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 
                 // [FIX SEGURIDAD] Validar que sea numérico antes de atoi
                 bool isNumeric = true;
-                for (size_t j = 0; j < limitStr.length(); ++j) {
+                size_t start = 0;
+                if (!limitStr.empty() && (limitStr[0] == '-' || limitStr[0] == '+')) start = 1;
+                
+                for (size_t j = start; j < limitStr.length(); ++j) {
                     if (!std::isdigit(limitStr[j])) {
                         isNumeric = false;
                         break;
@@ -224,8 +226,8 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 }
                 
                 // Si no es número o es negativo, ignoramos
-                if (!isNumeric) continue;
-                
+                if (!isNumeric || limitStr.empty()) continue;
+
                 int limit = std::atoi(limitStr.c_str());
                 // Un límite de 0 o negativo no tiene sentido en este contexto
                 if (limit <= 0) continue; 

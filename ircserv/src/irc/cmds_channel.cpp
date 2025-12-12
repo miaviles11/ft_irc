@@ -57,6 +57,17 @@ void Server::cmdJoin(ClientConnection* client, const Message& msg)
         if (chanName[0] != '#' && chanName[0] != '&') 
             chanName = "#" + chanName;
 
+        // RFC 2812: Los nombres de canal no pueden contener espacios, comas, o control chars
+        bool invalidName = false;
+        for (size_t j = 0; j < chanName.length(); ++j) {
+            if (chanName[j] == ' ' || chanName[j] == ',' || chanName[j] == '\x07') {
+                sendError(client, ERR_BADCHANMASK, chanName);
+                invalidName = true;
+                break;
+            }
+        }
+        if (invalidName) continue;
+
         Channel* channel = getChannel(chanName);
         if (!channel)
         {

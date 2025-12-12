@@ -269,8 +269,8 @@ bool Server::handleClientEvent(size_t poll_index)
             client->updateActivity();
             processClientCommands(client);
             
-            // [CORRECCION ZOMBIE] 
-            // Verificamos si un comando (ej: QUIT) marcó la conexión para cierre
+            // [FIX ZOMBIE] Verificar si un comando (ej: QUIT) marcó la conexión para cierre
+            // CRÍTICO: Debe estar INMEDIATAMENTE después de processClientCommands()
             if (client->isClosed())
             {
                 disconnectClient(poll_index);

@@ -70,7 +70,16 @@ class Channel
         // ------------------------------------------------------------------
         // COMUNICACIÓN
         // ------------------------------------------------------------------
-        // Enviar mensaje a todos en el canal, excepto 'excludeUser' (opcional)
+        /**
+         * Broadcast a message to all channel members.
+         * 
+         * Sends the message to all members in the channel.
+         * If excludeUser is NULL, the message is sent to everyone.
+         * If excludeUser is a valid User pointer, that user is skipped.
+         * 
+         * @param msg Message to send (must end with \r\n for IRC protocol)
+         * @param excludeUser User to skip sending to (NULL = send to everyone)
+         */
         void    broadcast(const std::string& msg, User* excludeUser);
         
         // Genera la lista de nombres para RPL_NAMREPLY (ej: "@Admin +User1 User2")

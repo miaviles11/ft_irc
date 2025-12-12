@@ -39,7 +39,12 @@ Channel* Server::createChannel(const std::string& name)
 
 void Server::cmdJoin(ClientConnection* client, const Message& msg)
 {
-    if (!client->isRegistered()) return;
+    // CRÍTICO: Verificar que el usuario esté registrado
+    if (!client->isRegistered()) {
+        sendError(client, ERR_NOTREGISTERED, "");
+        return;
+    }
+    
     if (msg.params.empty()) return sendError(client, ERR_NEEDMOREPARAMS, "JOIN");
 
     std::vector<std::string> targets = split(msg.params[0], ',');

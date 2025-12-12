@@ -45,6 +45,8 @@ void sendError(ClientConnection* client, std::string num, std::string arg)
     else if (num == ERR_BADCHANNELKEY) msg = arg + " :Cannot join channel (+k)";
     else if (num == ERR_CHANNELISFULL) msg = arg + " :Cannot join channel (+l)";
     else if (num == ERR_USERNOTINCHANNEL) msg = arg + " :They aren't on that channel";
+    else if (num == ERR_NOTREGISTERED) msg = ":You have not registered";
+    else if (num == ERR_BADCHANMASK) msg = arg + " :Bad Channel Mask";
     else msg = arg + " :Unknown Error";
 
     sendReply(client, num, msg);

@@ -252,6 +252,12 @@ bool Server::handleClientEvent(size_t poll_index)
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
     {
         std::cout << "[SERVER] Client fd=" << fd << " disconnected (POLLHUP/ERR)" << std::endl;
+        
+        // [FIX RACE] Procesar datos pendientes antes de desconectar
+        if (client->hasCompleteLine()) {
+            processClientCommands(client);
+        }
+        
         disconnectClient(poll_index);
         return false; // Cliente eliminado
     }
@@ -260,11 +266,27 @@ bool Server::handleClientEvent(size_t poll_index)
     if (revents & POLLIN)
     {
         char buffer[4096];
-        ssize_t bytes = recv(fd, buffer, sizeof(buffer) - 1, 0); // No usamos SocketUtils para simplificar lógica aquí o úsalo si prefieres
+        ssize_t bytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
 
         if (bytes > 0)
         {
             buffer[bytes] = '\0';
+            
+            // Debug: Escapar caracteres especiales para log legible
+            std::string displayData(buffer, bytes);
+            for (size_t i = 0; i < displayData.length(); ++i) {
+                if (displayData[i] == '\r') {
+                    displayData.replace(i, 1, "\\r");
+                    i++; // Saltar el carácter añadido
+                } else if (displayData[i] == '\n') {
+                    displayData.replace(i, 1, "\\n");
+                    i++;
+                }
+            }
+            
+            std::cout << "[RECV] fd=" << fd << " (" << bytes << " bytes): " 
+                      << displayData << std::endl;
+            
             client->appendRecvData(std::string(buffer, bytes));
             client->updateActivity();
             processClientCommands(client);
@@ -279,7 +301,15 @@ bool Server::handleClientEvent(size_t poll_index)
         }
         else if (bytes == 0) // Conexión cerrada por el par
         {
-            std::cout << "[SERVER] Client fd=" << fd << " closed connection gracefully" << std::endl;
+            // [FIX RACE] Procesar buffer antes de desconectar
+            std::cout << "[SERVER] Client fd=" << fd << " closed connection" << std::endl;
+            
+            // Si hay datos pendientes en el buffer, procesarlos primero
+            if (client->hasCompleteLine()) {
+                std::cout << "[SERVER] Processing pending commands before disconnect..." << std::endl;
+                processClientCommands(client);
+            }
+            
             disconnectClient(poll_index);
             return false; // Cliente eliminado
         }

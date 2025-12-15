@@ -249,30 +249,24 @@ bool Server::handleClientEvent(size_t poll_index)
     short revents = poll_fds_[poll_index].revents;
     ClientConnection* client = findClientByFd(fd);
 
-    // Seguridad: Si no encontramos el objeto cliente pero está en poll, lo sacamos
     if (!client)
     {
-        // Eliminar directamente del poll para evitar bucles infinitos
         poll_fds_.erase(poll_fds_.begin() + poll_index);
         close(fd);
-        return false; // Cliente eliminado
+        return false;
     }
 
-    // 1. GESTIÓN DE ERRORES DE POLL
+    // 1. ERRORES / DESCONEXIÓN
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
     {
-        std::cout << YELLOW << "[SERVER] Client fd=" << fd << " disconnected (POLLHUP/ERR)" << RESET << std::endl;
-        
-        // [FIX RACE] Procesar datos pendientes antes de desconectar
-        if (client->hasCompleteLine()) {
-            processClientCommands(client);
-        }
-        
+        std::cout << YELLOW << "[SERVER] Client fd=" << fd
+                  << " disconnected (poll error)" << RESET << std::endl;
+        processClientCommands(client);
         disconnectClient(poll_index);
-        return false; // Cliente eliminado
+        return false;
     }
 
-    // 2. LECTURA (POLLIN)
+    // 2. LECTURA
     if (revents & POLLIN)
     {
         char buffer[4096];
@@ -281,82 +275,61 @@ bool Server::handleClientEvent(size_t poll_index)
         if (bytes > 0)
         {
             buffer[bytes] = '\0';
-            
-            // Debug: Escapar caracteres especiales para log legible
-            std::string displayData(buffer, bytes);
-            for (size_t i = 0; i < displayData.length(); ++i) {
-                if (displayData[i] == '\r') {
-                    displayData.replace(i, 1, "\\r");
-                    i++; // Saltar el carácter añadido
-                } else if (displayData[i] == '\n') {
-                    displayData.replace(i, 1, "\\n");
-                    i++;
-                }
-            }
-            
-            std::cout << BLUE << "[RECV] fd=" << fd << " (" << bytes << " bytes): " 
-                      << displayData << RESET << std::endl;
-            
             client->appendRecvData(std::string(buffer, bytes));
             client->updateActivity();
-            processClientCommands(client);
-            
-            // [FIX ZOMBIE] Verificar si un comando (ej: QUIT) marcó la conexión para cierre
-            // CRÍTICO: Debe estar INMEDIATAMENTE después de processClientCommands()
-            if (client->isClosed())
-            {
-                disconnectClient(poll_index);
-                return false; // Cliente eliminado
-            }
-        }
-        else if (bytes == 0) // Conexión cerrada por el par
-        {
-            // [FIX RACE] Procesar buffer antes de desconectar
-            std::cout << YELLOW << "[SERVER] Client fd=" << fd << " closed connection" << RESET << std::endl;
-            
-            // Si hay datos pendientes en el buffer, procesarlos primero
-            if (client->hasCompleteLine()) {
-                std::cout << CYAN << "[SERVER] Processing pending commands before disconnect..." << RESET << std::endl;
-                processClientCommands(client);
-            }
-            
-            disconnectClient(poll_index);
-            return false; // Cliente eliminado
-        }
-        else // Error en recv
-        {
-            if (errno != EAGAIN && errno != EWOULDBLOCK)
-            {
-                std::cerr << BRIGHT_RED << "[SERVER] recv() error on fd=" << fd << ": " << strerror(errno) << RESET << std::endl;
-                disconnectClient(poll_index);
-                return false; // Cliente eliminado
-            }
-        }
-    }
 
-    // 3. ESCRITURA (POLLOUT)
-    // Solo intentamos escribir si el socket está listo Y hay datos pendientes
-    if ((revents & POLLOUT) && client->hasPendingSend())
-    {
-        sendPendingData(client);
-        
-        // Verificar de nuevo si hubo error fatal durante el envío
-        if (client->isClosed())
+            // Procesar comandos
+            processClientCommands(client);
+
+            // Intentar enviar inmediatamente
+            if (client->hasPendingSend())
+            {
+                sendPendingData(client);
+            }
+        }
+        else if (bytes == 0)
         {
+            std::cout << YELLOW << "[SERVER] Client fd=" << fd
+                      << " closed connection" << RESET << std::endl;
+            processClientCommands(client);
             disconnectClient(poll_index);
             return false;
         }
+        else
+        {
+            if (errno != EAGAIN && errno != EWOULDBLOCK)
+            {
+                std::cerr << BRIGHT_RED << "[SERVER] recv() error on fd=" << fd
+                          << ": " << strerror(errno) << RESET << std::endl;
+                disconnectClient(poll_index);
+                return false;
+            }
+        }
     }
 
-    // [ACTUALIZAR POLL EVENTS]
-    // Si el cliente sigue vivo, actualizamos qué eventos nos interesan.
-    // Siempre POLLIN. Solo POLLOUT si hay datos en el buffer de salida.
-    if (client->hasPendingSend())
-        poll_fds_[poll_index].events = POLLIN | POLLOUT;
-    else
-        poll_fds_[poll_index].events = POLLIN;
+    // 3. ESCRITURA
+    if (revents & POLLOUT)
+    {
+        if (client->hasPendingSend())
+        {
+            sendPendingData(client);
+        }
+    }
 
-    return true; // Cliente sigue vivo
+    // 🔥 FIX: Actualizar eventos dinámicamente
+    if (client->hasPendingSend())
+    {
+        poll_fds_[poll_index].events = POLLIN | POLLOUT;
+    }
+    else
+    {
+        poll_fds_[poll_index].events = POLLIN;
+    }
+    
+    // 🔥 FIX: Limpiar revents para el próximo ciclo
+    poll_fds_[poll_index].revents = 0;
+
+    return true;
 }
 
 //* ============================================================================
@@ -481,16 +454,34 @@ void Server::processClientCommands(ClientConnection* client)
 
 void Server::sendPendingData(ClientConnection* client)
 {
-    const std::string& data = client->getSendBuffer();
-    if (data.empty()) return;
+    if (!client->hasPendingSend())
+        return;
 
-    // Enviar datos usando SocketUtils o send directamente
-    ssize_t bytesSent = send(client->getFd(), data.c_str(), data.length(), 0);
+    const std::string& data = client->getSendBuffer();
+    
+    // 🔥 Envío no bloqueante con MSG_DONTWAIT
+    ssize_t bytesSent = send(client->getFd(), data.c_str(), data.length(), MSG_DONTWAIT);
 
     if (bytesSent > 0)
     {
-        // Limpiar del buffer los bytes que ya se enviaron
+        // Limpiar solo los bytes que se enviaron
         client->clearSentData(bytesSent);
+        
+        std::cout << "[DEBUG] Sent " << bytesSent << "/" << data.length() 
+                  << " bytes to fd=" << client->getFd() << std::endl;
+    }
+    else if (bytesSent < 0)
+    {
+        // Errores normales en non-blocking
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+        {
+            // Socket lleno, lo intentaremos en el próximo POLLOUT
+            return;
+        }
+        
+        // Error fatal
+        std::cerr << "[ERROR] send() failed: " << strerror(errno) << std::endl;
+        client->closeConnection();
     }
 }
 //* ============================================================================

@@ -85,7 +85,7 @@ Test 2.6: Nickname inválido
 bash# Terminal 3
 PASS password123
 NICK Alice@123   # ❌ Carácter inválido
-NICK 123Alice    # ❌ Empieza con número (según RFC)
+NICK 123Alice    # ❌ Empieza con número (según RFC)  ---> ❌❌❌ ERROR 1
 
 # ✅ Debe rechazar con:
 :ft_irc 432 * <nick> :Erroneous nickname
@@ -134,7 +134,7 @@ PRIVMSG #general :Hello everyone!
 :AliceNew!alice@127.0.0.1 PRIVMSG #general :Hello everyone!
 
 # Terminal 3 (Bob responde)
-PRIVMSG #general :Hi Alice!
+PRIVMSG #general :Hi Alice!  ---> ❌❌❌ ERROR 2
 
 # ✅ Alice ve:
 :Bob!bob@127.0.0.1 PRIVMSG #general :Hi Alice!
@@ -189,7 +189,7 @@ bash# Terminal 3 (Bob - NO es operador)
 TOPIC #general :Bob's topic
 
 # ✅ Debe fallar con:
-:ft_irc 482 Bob #general :You're not channel operator
+:ft_irc 482 Bob #general :You're not channel operator   ------> ❌❌❌ ERROR 3
 
 # (Solo si el modo +t está activo, que es por defecto)
 Test 4.3: MODE +o (dar operador)
@@ -464,17 +464,16 @@ bash# 1. Abrir HexChat
 # ✅ Debe conectarse exitosamente
 # ✅ Debe poder hacer JOIN, PRIVMSG, etc.
 Test 9.2: Irssi
-bashirssi
+bash irssi
 
 # Dentro de irssi:
 /server add ft_irc localhost 6667 password123
-/connect ft_irc
-/nick TestUser
+/connect localhost 6665 pass123 TestUser
 /join #general
 
 # ✅ Debe funcionar como servidor real
 Test 9.3: WeeChat
-bashweechat
+bash weechat
 
 # Dentro de weechat:
 /server add ft_irc localhost/6667
@@ -483,3 +482,43 @@ bashweechat
 /join #general
 
 # ✅ Debe funcionar
+
+
+
+# ❌❌❌ ERROR 1:
+
+Esto deberia ser un error: "NICK 123Alice    # ❌ Empieza con número (según RFC)"
+Pero por alguna razón, permite un usuario que empieze con un número.
+
+# ❌❌❌ ERROR 2:
+
+El QUIT ha dejado de funcionar por alguna razón.
+
+# TODO: 
+- TIMESTAMPS
+- Envio de mensajes bonito
+- Mensaje de error cuando se pasa mal la contraseña
+- Bot (BONUS)
+
+
+# USUARIOS DE PRUEBA:
+
+PASS pass123
+NICK Alice
+USER alice 0 * :Alice
+
+PASS pass123
+NICK Bob
+USER bob 0 * :Bob
+
+PASS pass123
+NICK Charlie
+USER charlie 0 * :Charlie
+
+# CANAL DE PRUEBA
+
+JOIN #general
+
+# MENSAJE DE PRUEBA
+
+PRIVMSG #general :HOLAAA

@@ -25,38 +25,64 @@ void Server::cmdPrivMsg(ClientConnection* client, const Message& msg)
     }
     if (msg.params.size() < 2) return sendError(client, ERR_NEEDMOREPARAMS, "PRIVMSG");
 
+    User* sender = client->getUser();
     std::string target = msg.params[0];
     std::string text = msg.params[1];
 
+    std::string fullMsg = ":" + sender->getPrefix() + " PRIVMSG " + target + " :" + text + "\r\n";
+
+    // CASO 1: Mensaje a canal
     if (target[0] == '#')
     {
         Channel* channel = getChannel(target);
-        if (!channel) return sendError(client, ERR_NOSUCHCHANNEL, target);
+        if (!channel)
+            return sendError(client, ERR_NOSUCHCHANNEL, target);
         
-        // Verificación de si el canal permite mensajes externos (modo n, opcional)
-        // Por defecto en esta implementación, cualquiera puede hablar si no implementas +n explícitamente.
-        // Si implementaste +n:
-        // if (channel->hasMode('n') && !channel->isMember(client->getUser()))
-        //      return sendError(client, ERR_CANNOTSENDTOCHAN, target);
+        if (!channel->isMember(sender))
+            return sendError(client, ERR_CANNOTSENDTOCHAN, target);
 
-        std::string fullMsg = ":" + client->getUser()->getPrefix() + " PRIVMSG " + target + " :" + text + "\r\n";
+        // Broadcast a todos los miembros (excepto sender)
+        channel->broadcast(fullMsg, sender);
         
-        // Excluimos al emisor (el cliente ya sabe lo que escribió)
-        channel->broadcast(fullMsg, client->getUser());
+        // 🔥 FIX: Forzar envío inmediato para todos los receptores
+        const std::vector<User*>& members = channel->getMembers();
+        for (std::vector<User*>::const_iterator it = members.begin(); it != members.end(); ++it)
+        {
+            User* member = *it;
+            if (member == sender)
+                continue;
+            
+            ClientConnection* conn = member->getConnection();
+            if (conn && conn->hasPendingSend())
+            {
+                sendPendingData(conn);  // Intentar enviar inmediatamente
+            }
+        }
     }
+    // CASO 2: Mensaje privado
     else
     {
-        User* dest = NULL;
-        for (size_t i = 0; i < clients_.size(); ++i) {
-            if (clients_[i]->isRegistered() && clients_[i]->getUser()->getNickname() == target) {
-                dest = clients_[i]->getUser();
+        // Buscar usuario por nickname
+        User* recipient = NULL;
+        for (size_t i = 0; i < clients_.size(); ++i)
+        {
+            if (clients_[i]->isRegistered() && 
+                clients_[i]->getUser()->getNickname() == target)
+            {
+                recipient = clients_[i]->getUser();
                 break;
             }
         }
-        if (!dest) return sendError(client, ERR_NOSUCHNICK, target);
-
-        std::string fullMsg = ":" + client->getUser()->getPrefix() + " PRIVMSG " + target + " :" + text + "\r\n";
-        dest->getConnection()->queueSend(fullMsg);
+        
+        if (!recipient)
+            return sendError(client, ERR_NOSUCHNICK, target);
+        
+        ClientConnection* recipientConn = recipient->getConnection();
+        if (recipientConn)
+        {
+            recipientConn->queueSend(fullMsg);
+            sendPendingData(recipientConn);  // 🔥 FIX: Enviar inmediatamente
+        }
     }
 }
 

@@ -34,6 +34,7 @@ Channel* Server::getChannel(const std::string& name)
 Channel* Server::createChannel(const std::string& name)
 {
     Channel* newChan = new Channel(name);
+    newChan->setMode('t', true); //-R- Added to ensure the topic is protected by default (+t mode)
     channels_.push_back(newChan);
     return newChan;
 }

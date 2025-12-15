@@ -184,15 +184,22 @@ bool Channel::isInvited(User* user) const
 // COMUNICACIÓN
 // ============================================================================
 
-void Channel::broadcast(const std::string& msg, User* excludeUser)
+void Channel::broadcast(const std::string& message, User* exclude)
 {
-    for (size_t i = 0; i < _members.size(); ++i)
+    for (std::vector<User*>::iterator it = _members.begin(); it != _members.end(); ++it)
     {
-        if (_members[i] != excludeUser)
+        User* member = *it;
+        
+        if (member == exclude)
+            continue;
+        
+        ClientConnection* conn = member->getConnection();
+        if (conn && !conn->isClosed())
         {
-            // Asumimos que User tiene getConnection() y ClientConnection tiene queueSend()
-            if (_members[i]->getConnection())
-                _members[i]->getConnection()->queueSend(msg);
+            conn->queueSend(message);
+            
+            // 🔥 FIX: Forzar envío inmediato si es posible
+            // Esto no lo puedes hacer desde aquí porque Channel no conoce Server
         }
     }
 }

@@ -198,7 +198,7 @@ void Channel::broadcast(const std::string& message, User* exclude)
         {
             conn->queueSend(message);
             
-            // 🔥 FIX: Forzar envío inmediato si es posible
+            // FIX: Forzar envío inmediato si es posible
             // Esto no lo puedes hacer desde aquí porque Channel no conoce Server
         }
     }

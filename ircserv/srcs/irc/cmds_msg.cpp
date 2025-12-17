@@ -6,7 +6,7 @@
 /*   By: carlsanc <carlsanc@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/10 20:32:52 by carlsanc          #+#    #+#             */
-/*   Updated: 2025/12/10 20:32:52 by carlsanc         ###   ########.fr       */
+/*   Updated: 2025/12/17 19:05:24 by carlsanc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,7 +44,7 @@ void Server::cmdPrivMsg(ClientConnection* client, const Message& msg)
         // Broadcast a todos los miembros (excepto sender)
         channel->broadcast(fullMsg, sender);
         
-        // 🔥 FIX: Forzar envío inmediato para todos los receptores
+        // FIX: Forzar envío inmediato para todos los receptores
         const std::vector<User*>& members = channel->getMembers();
         for (std::vector<User*>::const_iterator it = members.begin(); it != members.end(); ++it)
         {

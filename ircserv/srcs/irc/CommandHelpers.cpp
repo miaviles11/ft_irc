@@ -6,7 +6,7 @@
 /*   By: carlsanc <carlsanc@student.42madrid>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/10 20:33:01 by carlsanc          #+#    #+#             */
-/*   Updated: 2025/12/10 20:33:01 by carlsanc         ###   ########.fr       */
+/*   Updated: 2025/12/17 19:07:30 by carlsanc         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,6 +37,8 @@ void sendError(ClientConnection* client, std::string num, std::string arg)
     else if (num == ERR_NICKNAMEINUSE) msg = arg + " :Nickname is already in use";
     else if (num == ERR_NOSUCHNICK) msg = arg + " :No such nick/channel";
     else if (num == ERR_NOSUCHCHANNEL) msg = arg + " :No such channel";
+    else if (num == ERR_CANNOTSENDTOCHAN) msg = arg + " :Cannot send to channel";
+    
     else if (num == ERR_NOTONCHANNEL) msg = arg + " :You're not on that channel";
     else if (num == ERR_USERONCHANNEL) msg = arg + " :is already on channel";
     else if (num == ERR_CHANOPRIVSNEEDED) msg = arg + " :You're not channel operator";

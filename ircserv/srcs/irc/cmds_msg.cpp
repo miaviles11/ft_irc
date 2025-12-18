@@ -16,6 +16,7 @@
 #include "../channel/Channel.hpp"
 #include "CommandHelpers.hpp"
 #include "../irc/NumericReplies.hpp"
+#include "../utils/Colors.hpp"
 
 void Server::cmdPrivMsg(ClientConnection* client, const Message& msg)
 {
@@ -29,7 +30,14 @@ void Server::cmdPrivMsg(ClientConnection* client, const Message& msg)
     std::string target = msg.params[0];
     std::string text = msg.params[1];
 
-    std::string fullMsg = ":" + sender->getPrefix() + " PRIVMSG " + target + " :" + text + "\r\n";
+     // Obtener timestamp
+    std::string timestamp = getCurrentTimestamp();
+
+    // Mensaje para clientes
+    std::string fullMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                          BRIGHT_CYAN + ":" + sender->getPrefix() + RESET +
+                          " " + BRIGHT_YELLOW + "PRIVMSG" + RESET + " " +
+                          CYAN + target + RESET + " :" + text + "\r\n";
 
     // CASO 1: Mensaje a canal
     if (target[0] == '#')
@@ -94,16 +102,28 @@ void Server::cmdNotice(ClientConnection* client, const Message& msg)
     std::string target = msg.params[0];
     std::string text = msg.params[1];
 
+    // Obtener timestamp
+    std::string timestamp = getCurrentTimestamp();
+
+    // CASO 1: NOTICE a canal
     if (target[0] == '#') {
         Channel* channel = getChannel(target);
         if (channel && channel->isMember(client->getUser())) {
-            std::string fullMsg = ":" + client->getUser()->getPrefix() + " NOTICE " + target + " :" + text + "\r\n";
+            std::string fullMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                  BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                  " " + BRIGHT_YELLOW + "NOTICE" + RESET + " " +
+                                  CYAN + target + RESET + " :" + text + "\r\n";
             channel->broadcast(fullMsg, client->getUser());
         }
-    } else {
+    }
+    // CASO 2: NOTICE privado
+    else {
         for (size_t i = 0; i < clients_.size(); ++i) {
             if (clients_[i]->isRegistered() && clients_[i]->getUser()->getNickname() == target) {
-                std::string fullMsg = ":" + client->getUser()->getPrefix() + " NOTICE " + target + " :" + text + "\r\n";
+                std::string fullMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                      BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                      " " + BRIGHT_YELLOW + "NOTICE" + RESET + " " +
+                                      CYAN + target + RESET + " :" + text + "\r\n";
                 clients_[i]->queueSend(fullMsg);
                 break;
             }

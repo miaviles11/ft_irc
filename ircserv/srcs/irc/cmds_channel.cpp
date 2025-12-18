@@ -108,8 +108,14 @@ void Server::cmdJoin(ClientConnection* client, const Message& msg)
         channel->addMember(client->getUser());
         client->getUser()->joinChannel(channel);
 
+        // Obtener timestamp
+        std::string timestamp = getCurrentTimestamp();
+        
         // Notificar a todos en el canal (incluido el nuevo usuario)
-        std::string joinMsg = ":" + client->getUser()->getPrefix() + " JOIN " + chanName + "\r\n";
+        std::string joinMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                    BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                    " " + BRIGHT_YELLOW + "JOIN" + RESET + " " +
+                                    CYAN + chanName + RESET + "\r\n";
         channel->broadcast(joinMsg, NULL);
 
         // Enviar Topic
@@ -153,7 +159,13 @@ void Server::cmdPart(ClientConnection* client, const Message& msg)
             continue;
         }
 
-        std::string partMsg = ":" + client->getUser()->getPrefix() + " PART " + chanName + " :" + reason + "\r\n";
+        // Obtener timestamp
+        std::string timestamp = getCurrentTimestamp();
+
+        std::string partMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                " " + BRIGHT_YELLOW + "PART" + RESET + " " +
+                                CYAN + chanName + RESET + " :" + reason + "\r\n";
         channel->broadcast(partMsg, NULL); // Enviar a todos
 
         channel->removeMember(client->getUser());
@@ -203,7 +215,14 @@ void Server::cmdTopic(ClientConnection* client, const Message& msg)
 
     channel->setTopic(msg.params[1]);
     
+    // Obtener timestamp
+    std::string timestamp = getCurrentTimestamp();
+
     // Notificar el cambio a todos
-    std::string topicMsg = ":" + client->getUser()->getPrefix() + " TOPIC " + channel->getName() + " :" + msg.params[1] + "\r\n";
-    channel->broadcast(topicMsg, NULL);
+    std::string topicMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                            BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                            " " + BRIGHT_YELLOW + "TOPIC" + RESET + " " +
+                            CYAN + channel->getName() + RESET + " :" +
+                            BRIGHT_GREEN + msg.params[1] + RESET + "\r\n";
+channel->broadcast(topicMsg, NULL);
 }

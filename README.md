@@ -85,7 +85,7 @@ Test 2.6: Nickname inválido
 bash# Terminal 3
 PASS password123
 NICK Alice@123   # ❌ Carácter inválido
-NICK 123Alice    # ❌ Empieza con número (según RFC)  ---> ❌❌❌ ERROR 1
+NICK 123Alice    # ❌ Empieza con número (según RFC)
 
 # ✅ Debe rechazar con:
 :ft_irc 432 * <nick> :Erroneous nickname
@@ -134,7 +134,7 @@ PRIVMSG #general :Hello everyone!
 :AliceNew!alice@127.0.0.1 PRIVMSG #general :Hello everyone!
 
 # Terminal 3 (Bob responde)
-PRIVMSG #general :Hi Alice!  ---> ❌❌❌ ERROR 2
+PRIVMSG #general :Hi Alice!
 
 # ✅ Alice ve:
 :Bob!bob@127.0.0.1 PRIVMSG #general :Hi Alice!
@@ -189,7 +189,7 @@ bash# Terminal 3 (Bob - NO es operador)
 TOPIC #general :Bob's topic
 
 # ✅ Debe fallar con:
-:ft_irc 482 Bob #general :You're not channel operator   ------> ❌❌❌ ERROR 3
+:ft_irc 482 Bob #general :You're not channel operator
 
 # (Solo si el modo +t está activo, que es por defecto)
 Test 4.3: MODE +o (dar operador)
@@ -485,18 +485,9 @@ bash weechat
 
 
 
-# ❌❌❌ ERROR 1:
-
-Esto deberia ser un error: "NICK 123Alice    # ❌ Empieza con número (según RFC)"
-Pero por alguna razón, permite un usuario que empieze con un número.
-
-# ❌❌❌ ERROR 2:
-
-El QUIT ha dejado de funcionar por alguna razón.
-
 # TODO: 
-- TIMESTAMPS
-- Envio de mensajes bonito
+- TIMESTAMPS ✅✅
+- Envio de mensajes bonito ✅✅
 - Mensaje de error cuando se pasa mal la contraseña
 - Bot (BONUS)
 

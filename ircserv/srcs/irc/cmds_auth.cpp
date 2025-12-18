@@ -74,6 +74,20 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
 
     std::string newNick = msg.params[0];
 
+    // Verificar longitud máxima (9 caracteres)
+    if (newNick.length() > 9)
+    {
+        sendServerNotice(client, std::string(BRIGHT_RED) + "* ERROR: Nickname too long (max 9 chars)" + RESET);
+        return sendError(client, ERR_ERRONEUSNICKNAME, newNick);
+    }
+
+    // Verificar que no empiece con dígito o '-'
+    if (std::isdigit(newNick[0]) || newNick[0] == '-')
+    {
+        sendServerNotice(client, std::string(BRIGHT_RED) + "*** ERROR: Nickname cannot start with a digit or '-'" + RESET);
+        return sendError(client, ERR_ERRONEUSNICKNAME, newNick);
+    }
+
     // Caracteres permitidos (RFC 2812)
     if (newNick.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]{}\\|-_^") != std::string::npos)
     {

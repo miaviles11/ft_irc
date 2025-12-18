@@ -78,6 +78,9 @@ class Server {
 		void updatePollEvents(int fd, short events);
 		ClientConnection* findClientByFd(int fd);
 
+		//* TIMESTAMP HELPER
+		std::string getCurrentTimestamp() const;
+
         //* CHANNEL MANAGEMENT HELPER FUNCTIONS (CRÍTICO: FALTABAN ESTOS)
         Channel* getChannel(const std::string& name);
         Channel* createChannel(const std::string& name);

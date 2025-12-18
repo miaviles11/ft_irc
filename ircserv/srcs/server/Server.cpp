@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <iostream>
 #include <sys/socket.h>
+#include <ctime>
 
 //* ============================================================================
 //* CONSTRUCTOR Y DESTRUCTOR
@@ -395,7 +396,10 @@ void Server::disconnectClient(size_t poll_index)
                 Channel* channel = *it;
 
                 // 1. Notificar a los demás (QUIT message)
-                std::string quitMsg = ":" + user->getPrefix() + " QUIT :Connection closed\r\n";
+                std::string timestamp = getCurrentTimestamp();
+                std::string quitMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                        BRIGHT_CYAN + ":" + user->getPrefix() + RESET +
+                                        " " + RED + "QUIT" + RESET + " :Connection closed\r\n";
                 channel->broadcast(quitMsg, user);
 
                 // 2. Eliminar al usuario del canal
@@ -573,4 +577,19 @@ void Server::initCommands()
     _commandMap["MODE"] = &Server::cmdMode;
     
     // El Parser ya se encarga de poner el comando en mayúsculas
+}
+
+//* ============================================================================
+//* HELPERS - TIMESTAMP
+//* ============================================================================
+
+std::string Server::getCurrentTimestamp() const
+{
+    time_t now = std::time(NULL);
+    struct tm* timeinfo = std::localtime(&now);
+    
+    char buffer[9]; // HH:MM:SS\0
+    std::strftime(buffer, sizeof(buffer), "%H:%M:%S", timeinfo);
+    
+    return std::string(buffer);
 }

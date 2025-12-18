@@ -16,6 +16,7 @@
 #include "../channel/Channel.hpp"
 #include "CommandHelpers.hpp"
 #include "../irc/NumericReplies.hpp"
+#include "../utils/Colors.hpp"
 #include <cstdlib>
 #include <cstdio>
 #include <cctype>
@@ -44,8 +45,16 @@ void Server::cmdKick(ClientConnection* client, const Message& msg)
     if (!targetUser) 
         return sendError(client, ERR_USERNOTINCHANNEL, targetNick + " " + chanName);
 
-    // Broadcast del KICK a todos en el canal
-    std::string kickMsg = ":" + client->getUser()->getPrefix() + " KICK " + chanName + " " + targetNick + " :" + comment + "\r\n";
+    // Obtener timestamp
+    std::string timestamp = getCurrentTimestamp();
+
+    // Mensaje KICK
+    std::string kickMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                            BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                            " " + BRIGHT_YELLOW + "KICK" + RESET + " " +
+                            CYAN + chanName + RESET + " " +
+                            targetNick + " :" + RED + comment + RESET + "\r\n";
+
     channel->broadcast(kickMsg, NULL);
 
     // Eliminar efectivamente
@@ -89,9 +98,16 @@ void Server::cmdInvite(ClientConnection* client, const Message& msg)
     }
     if (!dest) return sendError(client, ERR_NOSUCHNICK, targetNick);
 
-    std::string invMsg = ":" + client->getUser()->getPrefix() + " INVITE " + targetNick + " " + chanName + "\r\n";
+    // Obtener timestamp
+    std::string timestamp = getCurrentTimestamp();
+
+    // Mensaje INVITE
+    std::string invMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                            BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                            " " + BRIGHT_YELLOW + "INVITE" + RESET + " " +
+                            targetNick + " " + CYAN + chanName + RESET + "\r\n";
+
     dest->getConnection()->queueSend(invMsg);
-    
     sendReply(client, RPL_INVITING, targetNick + " " + chanName);
 }
 
@@ -145,7 +161,14 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
             }
         }
         if (!appliedModes.empty()) {
-            std::string modeMsg = ":" + client->getUser()->getPrefix() + " MODE " + target + " :" + appliedModes + "\r\n";
+            // Obtener timestamp
+            std::string timestamp = getCurrentTimestamp();
+
+            // Mensaje MODE
+            std::string modeMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                    BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                    " " + BRIGHT_YELLOW + "MODE" + RESET + " " +
+                                    target + " :" + BRIGHT_GREEN + appliedModes + RESET + "\r\n";
             client->queueSend(modeMsg);
         }
         return;
@@ -187,7 +210,17 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 if (action == '+') channel->addOperator(targetUser);
                 else channel->removeOperator(targetUser);
                 
-                channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "o " + targetNick + "\r\n", NULL);
+                // Obtener timestamp
+                std::string timestamp = getCurrentTimestamp();
+
+                // Mensaje MODE +o/-o
+                std::string modeMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                        BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                        " " + BRIGHT_YELLOW + "MODE" + RESET + " " +
+                                        CYAN + target + RESET + " " +
+                                        BRIGHT_GREEN + std::string(1, action) + "o" + RESET + " " +
+                                        targetNick + "\r\n";
+                channel->broadcast(modeMsg, NULL);
             } else {
                  sendError(client, ERR_USERNOTINCHANNEL, targetNick + " " + target);
             }
@@ -202,7 +235,17 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 if (key.find(' ') != std::string::npos) continue;
 
                 channel->setKey(key);
-                channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "k " + key + "\r\n", NULL);
+                // Obtener timestamp
+                std::string timestamp = getCurrentTimestamp();
+
+                // Mensaje MODE +k
+                std::string modeMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                        BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                        " " + BRIGHT_YELLOW + "MODE" + RESET + " " +
+                                        CYAN + target + RESET + " " +
+                                        BRIGHT_GREEN + std::string(1, action) + "k" + RESET + " " +
+                                        key + "\r\n";
+                channel->broadcast(modeMsg, NULL);
             } else {
                 // [FIX RFC] Modo permisivo: permite -k sin parámetro para OPs
                 std::string keyParam = "";
@@ -216,7 +259,16 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 }
                 
                 channel->setKey("");
-                channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " -k *\r\n", NULL);
+                // Obtener timestamp
+                std::string timestamp = getCurrentTimestamp();
+
+                // Mensaje MODE -k
+                std::string modeMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                        BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                        " " + BRIGHT_YELLOW + "MODE" + RESET + " " +
+                                        CYAN + target + RESET + " " +
+                                        BRIGHT_GREEN + "-k" + RESET + " *\r\n";
+                channel->broadcast(modeMsg, NULL);
             }
         }
         // l: Limit
@@ -247,17 +299,46 @@ void Server::cmdMode(ClientConnection* client, const Message& msg)
                 channel->setLimit(limit);
                 char buff[20];
                 std::sprintf(buff, "%d", limit);
-                channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "l " + std::string(buff) + "\r\n", NULL);
+                // Obtener timestamp
+                std::string timestamp = getCurrentTimestamp();
+
+                // Mensaje MODE +l
+                std::string modeMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                        BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                        " " + BRIGHT_YELLOW + "MODE" + RESET + " " +
+                                        CYAN + target + RESET + " " +
+                                        BRIGHT_GREEN + std::string(1, action) + "l" + RESET + " " +
+                                        std::string(buff) + "\r\n";
+                channel->broadcast(modeMsg, NULL);
             } else {
                 channel->setLimit(0); // 0 significa sin límite
-                channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + "l" + "\r\n", NULL);
+                // Obtener timestamp
+                std::string timestamp = getCurrentTimestamp();
+
+                // Mensaje MODE -l
+                std::string modeMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                        BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                        " " + BRIGHT_YELLOW + "MODE" + RESET + " " +
+                                        CYAN + target + RESET + " " +
+                                        BRIGHT_GREEN + std::string(1, action) + "l" + RESET + "\r\n";
+                channel->broadcast(modeMsg, NULL);
             }
         }
         // i: Invite Only | t: Topic Restricted
         else if (mode == 'i' || mode == 't') {
             channel->setMode(mode, (action == '+'));
+            // Obtener timestamp
+            std::string timestamp = getCurrentTimestamp();
             std::string mStr(1, mode);
-            channel->broadcast(":" + client->getUser()->getPrefix() + " MODE " + target + " " + action + mStr + "\r\n", NULL);
+
+            // Mensaje MODE +i/+t
+            std::string modeMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
+                                    BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
+                                    " " + BRIGHT_YELLOW + "MODE" + RESET + " " +
+                                    CYAN + target + RESET + " " +
+                                    BRIGHT_GREEN + std::string(1, action) + mStr + RESET + "\r\n";
+            channel->broadcast(modeMsg, NULL);
+            
         }
     }
 }

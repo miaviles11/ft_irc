@@ -40,9 +40,11 @@
 #define RPL_WHOISUSER       "311"
 #define RPL_WHOISSERVER     "312"
 #define RPL_WHOISOPERATOR   "313"
+#define RPL_ENDOFWHO        "315"
 #define RPL_WHOISIDLE       "317"
 #define RPL_ENDOFWHOIS      "318"
 #define RPL_WHOISCHANNELS   "319"
+#define RPL_WHOREPLY        "352"
 
 // Lists
 #define RPL_LISTSTART       "321"

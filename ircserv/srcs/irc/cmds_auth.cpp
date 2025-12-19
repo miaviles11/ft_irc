@@ -50,18 +50,41 @@ void Server::cmdPass(ClientConnection* client, const Message& msg)
 
     if (msg.params[0] != this->password_)
     {
-        sendServerNotice(client, std::string(BRIGHT_RED) + "*** ERROR: Incorrect password. Connection will be closed." + RESET);
-        sendServerNotice(client, std::string(BRIGHT_RED) + "*** Please reconnect with the correct password." + RESET);
+        // ❌ CONTRASEÑA INCORRECTA
+        sendServerNotice(client, "");
+        sendServerNotice(client, std::string(BRIGHT_RED) + "╔════════════════════════════════════════════════╗" + RESET);
+        sendServerNotice(client, std::string(BRIGHT_RED) + "║                                                ║" + RESET);
+        sendServerNotice(client, std::string(BRIGHT_RED) + "║  ✗  AUTHENTICATION FAILED                      ║" + RESET);
+        sendServerNotice(client, std::string(BRIGHT_RED) + "║                                                ║" + RESET);
+        sendServerNotice(client, std::string(BRIGHT_RED) + "║  Password incorrect.                           ║" + RESET);
+        sendServerNotice(client, std::string(BRIGHT_RED) + "║  Connection will be closed.                    ║" + RESET);
+        sendServerNotice(client, std::string(BRIGHT_RED) + "║                                                ║" + RESET);
+        sendServerNotice(client, std::string(BRIGHT_RED) + "╚════════════════════════════════════════════════╝" + RESET);
+        sendServerNotice(client, "");
         sendError(client, ERR_PASSWDMISMATCH, "");
+        sendPendingData(client);
+         // Log del servidor
+        std::cout << RED << "[AUTH] ✗ Password incorrect (fd=" 
+          << client->getFd() << ")" << RESET << std::endl;
         client->closeConnection();
         return;
     }
 
     // Password accepted
     client->markPassReceived();
+    std::cout << BRIGHT_GREEN << "[AUTH] ✓ Password accepted (fd=" 
+              << client->getFd() << ")" << RESET << std::endl;
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "╔════════════════════════════════════════════════╗" + RESET);
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "║                                                ║" + RESET);
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "║  ✓  PASSWORD ACCEPTED                          ║" + RESET);
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "║                                                ║" + RESET);
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "╚════════════════════════════════════════════════╝" + RESET);
+    sendServerNotice(client, "");
     sendServerNotice(client, std::string(BRIGHT_GREEN) + "*** Password accepted. Please identify yourself:" + RESET);
     sendServerNotice(client, std::string(CYAN) + "*** Use: NICK <your_nickname>" + RESET);
     sendServerNotice(client, std::string(CYAN) + "*** Then: USER <username> 0 * :<realname>" + RESET);
+    sendServerNotice(client, "");
 }
 
 void Server::cmdNick(ClientConnection* client, const Message& msg)
@@ -175,8 +198,45 @@ void Server::cmdUser(ClientConnection* client, const Message& msg)
     user->setUsername(msg.params[0]);
     user->setRealname(msg.params[3]);
     
-    sendServerNotice(client, std::string(BRIGHT_GREEN) + "*** Registration complete! Welcome to ft_irc." + RESET);
-    sendServerNotice(client, std::string(CYAN) + "*** Available commands: JOIN, PRIVMSG, PART, TOPIC, MODE, KICK, INVITE, QUIT" + RESET);
+    // Mensaje de bienvenida
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "╔════════════════════════════════════════════════════════════╗" + RESET);
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "║                                                            ║" + RESET);
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "║  ✓  REGISTRATION COMPLETE!                                 ║" + RESET);
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "║                                                            ║" + RESET);
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "╚════════════════════════════════════════════════════════════╝" + RESET);
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(BRIGHT_CYAN) + "    Welcome to ft_irc, " + BRIGHT_MAGENTA + user->getNickname() + BRIGHT_CYAN + "!" + RESET);
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(CYAN) + "    Your identity:" + RESET);
+    sendServerNotice(client, std::string(CYAN) + "      • Nickname : " + BRIGHT_MAGENTA + user->getNickname() + RESET);
+    sendServerNotice(client, std::string(CYAN) + "      • Username : " + YELLOW + user->getUsername() + RESET);
+    sendServerNotice(client, std::string(CYAN) + "      • Realname : " + YELLOW + user->getRealname() + RESET);
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(BRIGHT_YELLOW) + "    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + RESET);
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(BRIGHT_WHITE) + "    Available commands:" + RESET);
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(CYAN) + "      📢  JOIN #channel        " + RESET + "→ Join a channel");
+    sendServerNotice(client, std::string(CYAN) + "      💬  PRIVMSG #chan :msg   " + RESET + "→ Send message to channel");
+    sendServerNotice(client, std::string(CYAN) + "      💬  PRIVMSG nick :msg    " + RESET + "→ Send private message");
+    sendServerNotice(client, std::string(CYAN) + "      🚪  PART #channel        " + RESET + "→ Leave a channel");
+    sendServerNotice(client, std::string(CYAN) + "      📝  TOPIC #chan :topic   " + RESET + "→ Change channel topic");
+    sendServerNotice(client, std::string(CYAN) + "      ⚙️   MODE #chan +o nick   " + RESET + "→ Give operator status");
+    sendServerNotice(client, std::string(CYAN) + "      👢  KICK #chan nick      " + RESET + "→ Kick user from channel");
+    sendServerNotice(client, std::string(CYAN) + "      📨  INVITE nick #chan    " + RESET + "→ Invite user to channel");
+    sendServerNotice(client, std::string(CYAN) + "      👋  QUIT :reason         " + RESET + "→ Disconnect from server");
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(BRIGHT_YELLOW) + "    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" + RESET);
+    sendServerNotice(client, "");
+    sendServerNotice(client, std::string(BRIGHT_GREEN) + "    Type " + BRIGHT_WHITE + "JOIN #general" + BRIGHT_GREEN + " to get started!" + RESET);
+    sendServerNotice(client, "");
+    
+    // Log del servidor
+    std::cout << BRIGHT_GREEN << "[REGISTER] ✓ User registered: " 
+              << BRIGHT_MAGENTA << user->getNickname() 
+              << RESET << " (" << user->getUsername() << ")" 
+              << " (fd=" << client->getFd() << ")" << RESET << std::endl;
     
     checkRegistration(client);
 }

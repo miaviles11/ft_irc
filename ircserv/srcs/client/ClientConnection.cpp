@@ -15,7 +15,7 @@
 
 ClientConnection::ClientConnection(int fd): _fd(fd), _recvBuffer(""),
 _sendBuffer(""), _registered(false), _hasSentPass(false), _closed(false),
-_lastActivity(std::time(NULL)), _user(NULL)
+_lastActivity(std::time(NULL)), _connectTime(std::time(NULL)), _user(NULL)
 {
 }
 
@@ -135,6 +135,11 @@ void ClientConnection::updateActivity()
 time_t ClientConnection::getLastActivity() const
 {
 	return _lastActivity;
+}
+
+time_t ClientConnection::getConnectTime() const
+{
+    return _connectTime;
 }
 
 // ========================================================================

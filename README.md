@@ -171,6 +171,174 @@ PART #dev :Going to sleep
 
 # ✅ Bob también ve esto (porque está en #dev)
 
+Test 3.7: NAMES (listar usuarios en canal)
+bash# Terminal 2 (Alice en #general con Bob y Charlie)
+NAMES #general
+
+# ✅ Debes ver:
+:ft_irc 353 AliceNew = #general :@AliceNew Bob Charlie
+:ft_irc 366 AliceNew #general :End of /NAMES list
+
+# Nota: @ indica operador
+
+# Probar sin parámetros (lista TODOS los canales):
+NAMES
+
+# ✅ Debes ver todos los canales donde estás:
+:ft_irc 353 AliceNew = #general :@AliceNew Bob Charlie
+:ft_irc 353 AliceNew = #random :@AliceNew
+:ft_irc 366 AliceNew * :End of /NAMES list
+Test 3.8: NAMES (sin # autocorrección)
+bash# Terminal 2
+NAMES general
+
+# ✅ El servidor añade # automáticamente:
+:ft_irc 353 AliceNew = #general :@AliceNew Bob Charlie
+:ft_irc 366 AliceNew #general :End of /NAMES list
+Test 3.9: NAMES (canal inexistente)
+bashNAMES #noexiste
+
+# ✅ Debe dar error:
+:ft_irc 403 AliceNew #noexiste :No such channel
+Test 3.10: NAMES (sin estar registrado)
+bash# Terminal nueva sin autenticar
+nc localhost 6667
+PASS password123
+NAMES #general
+
+# ❌ Debe fallar:
+:ft_irc 451 * :You have not registered
+
+Test 3.11: WHO (información detallada de usuarios en canal)
+bash# Terminal 2 (Alice en #general con Bob)
+WHO #general
+
+# ✅ Debes ver (formato tabla con colores):
+:ft_irc 352 AliceNew #general alice 127.0.0.1 ft_irc AliceNew H@ :0 Alice Johnson
+:ft_irc 352 AliceNew #general bob 127.0.0.1 ft_irc Bob H :0 Bob Smith
+:ft_irc 315 AliceNew #general :End of /WHO list
+
+# Formato: <canal> <user> <host> <server> <nick> <flags> :<hop> <realname>
+# Flags: H = presente, H@ = presente + operador del canal
+# Colores: Canal (cian), Username (azul), Host (amarillo), Nick (verde), Realname (cian)
+Test 3.12: WHO (buscar usuario por nickname)
+bash# Terminal 2 (Alice busca a Bob)
+WHO Bob
+
+# ✅ Debes ver:
+:ft_irc 352 AliceNew * bob 127.0.0.1 ft_irc Bob H :0 Bob Smith
+:ft_irc 315 AliceNew Bob :End of /WHO list
+
+# Nota: * indica que no se especifica canal (búsqueda de usuario)
+Test 3.13: WHO (sin parámetros)
+bash# Terminal 2 (Alice)
+WHO
+
+# ✅ Debes ver (lista simplificada):
+:ft_irc 315 AliceNew * :End of /WHO list
+Test 3.14: WHO (usuario inexistente)
+bashWHO Charlie
+
+# ✅ Debe dar error:
+:ft_irc 401 AliceNew Charlie :No such nick/channel
+Test 3.15: WHO (canal inexistente)
+bashWHO #noexiste
+
+# ✅ Debe dar error:
+:ft_irc 403 AliceNew #noexiste :No such channel
+Test 3.16: WHO (sin estar registrado)
+bash# Terminal nueva sin autenticar
+nc localhost 6667
+PASS password123
+WHO #general
+
+# ❌ Debe fallar:
+:ft_irc 451 * :You have not registered
+
+Test 3.17: WHOIS (perfil completo de usuario)
+bash# Terminal 2 (Alice en #general)
+# Terminal 3 (Bob ejecuta WHOIS)
+WHOIS Alice
+
+# ✅ Debes ver (5 líneas con colores):
+:ft_irc 311 Bob Alice alice 127.0.0.1 * :Alice Wonderland
+:ft_irc 319 Bob Alice :@#general
+:ft_irc 312 Bob Alice ft_irc :FT IRC Server
+:ft_irc 317 Bob Alice 0 1766171247 :seconds idle, signon time
+:ft_irc 318 Bob Alice :End of /WHOIS list
+
+# Formato explicado:
+# [311] RPL_WHOISUSER: <nick> <username> <host> * :<realname>
+# [319] RPL_WHOISCHANNELS: <nick> :<canales> (@ = operador)
+# [312] RPL_WHOISSERVER: <nick> <servidor> :<info servidor>
+# [317] RPL_WHOISIDLE: <nick> <idle_segundos> <timestamp_conexión> :descripción
+# [318] RPL_ENDOFWHOIS: <nick> :End of /WHOIS list
+
+Test 3.18: WHOIS (múltiples canales)
+bash# Terminal 2 (Alice en #general, #random, #dev)
+JOIN #random
+JOIN #dev
+
+# Terminal 3 (Bob)
+WHOIS Alice
+
+# ✅ Línea 319 debe mostrar:
+:ft_irc 319 Bob Alice :@#general @#random @#dev
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                       Muestra TODOS los canales (@ si es OP)
+Test 3.19: WHOIS (idle time aumenta)
+bash# Terminal 2 (Alice sin escribir nada por 30 segundos)
+
+# Terminal 3 (Bob hace WHOIS)
+WHOIS Alice
+
+# ✅ Debe mostrar:
+:ft_irc 317 Bob Alice 30 1766171247 :seconds idle, signon time
+                      ^^
+                      Aproximadamente 30 segundos
+
+# Si Alice escribe algo:
+# Terminal 2
+PRIVMSG #general :hola
+
+# Terminal 3 (Bob hace WHOIS inmediatamente)
+WHOIS Alice
+
+# ✅ Idle se resetea:
+:ft_irc 317 Bob Alice 0 1766171247 :seconds idle, signon time
+                      ^
+                      Idle resetado a 0-2 segundos
+Test 3.20: WHOIS (usuario inexistente)
+bashWHOIS Charlie
+
+# ✅ Debe dar error:
+:ft_irc 401 Bob Charlie :No such nick/channel
+Test 3.21: WHOIS (sin parámetros)
+bashWHOIS
+
+# ✅ Debe dar error:
+:ft_irc 431 Bob :No nickname given
+Test 3.22: WHOIS (sin estar registrado)
+bash# Terminal nueva sin autenticar
+nc localhost 6667
+PASS password123
+WHOIS Alice
+
+# ❌ Debe fallar:
+:ft_irc 451 * :You have not registered
+Test 3.23: WHOIS vs WHO (comparación)
+bash# WHO muestra tabla de usuarios en un canal:
+WHO #general
+# ✅ Resultado: lista compacta con flags
+
+# WHOIS muestra perfil completo de UN usuario:
+WHOIS Alice
+# ✅ Resultado: 5 líneas con toda la información
+
+# Diferencias:
+# WHO  = rápido, múltiples usuarios, formato tabla
+# WHOIS = detallado, un usuario, perfil completo
+
 👑 FASE 4: OPERADORES DE CANAL
 Test 4.1: TOPIC (ver y cambiar)
 bash# Terminal 2 (Alice - operador de #general)
@@ -488,7 +656,10 @@ bash weechat
 # TODO: 
 - TIMESTAMPS ✅✅
 - Envio de mensajes bonito ✅✅
-- Mensaje de error cuando se pasa mal la contraseña
+- Mensaje de error cuando se pasa mal la contraseña ✅✅
+- PING PONG automatico
+- Comando NAMES ✅✅
+- Comando WHO y WHOIS ✅✅
 - Bot (BONUS)
 
 

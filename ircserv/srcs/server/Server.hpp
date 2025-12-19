@@ -21,6 +21,7 @@
 
 class ClientConnection;
 class Channel;
+class User;
 
 /**
  * Server: IRC Server main coordinator
@@ -116,6 +117,11 @@ class Server {
         void cmdPart(ClientConnection* client, const Message& msg);
         void cmdPrivMsg(ClientConnection* client, const Message& msg);
         void cmdNotice(ClientConnection* client, const Message& msg);
+		void cmdNames(ClientConnection* client, const Message& msg);
+		void cmdWho(ClientConnection* client, const Message& msg);
+		void cmdWhois(ClientConnection* client, const Message& msg);
+		// Función auxiliar para WHOIS
+		std::string getChannelsForUser(User* user) const;
 
         // Operadores
         void cmdKick(ClientConnection* client, const Message& msg);

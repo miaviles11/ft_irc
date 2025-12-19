@@ -457,6 +457,8 @@ void Server::disconnectClient(size_t poll_index)
 
 void Server::processClientCommands(ClientConnection* client)
 {
+    client->updateActivity();
+    
     // Procesamos TODAS las líneas completas que haya en el buffer
     // (Importante por si llegaron varios comandos pegados)
     while (client->hasCompleteLine())
@@ -571,6 +573,9 @@ void Server::initCommands()
     _commandMap["PART"] = &Server::cmdPart;
     _commandMap["PRIVMSG"] = &Server::cmdPrivMsg;
     _commandMap["NOTICE"] = &Server::cmdNotice;
+    _commandMap["NAMES"] = &Server::cmdNames;
+    _commandMap["WHO"] = &Server::cmdWho;
+    _commandMap["WHOIS"] = &Server::cmdWhois;
     _commandMap["KICK"] = &Server::cmdKick;
     _commandMap["INVITE"] = &Server::cmdInvite;
     _commandMap["TOPIC"] = &Server::cmdTopic;

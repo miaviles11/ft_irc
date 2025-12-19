@@ -52,6 +52,7 @@ class ClientConnection
         /* Activity tracking */
         void	updateActivity();
         time_t	getLastActivity() const;
+        time_t  getConnectTime() const;
 
         /* Connection management */
         void	closeConnection();
@@ -72,6 +73,7 @@ class ClientConnection
         bool _closed;							//* True if connection should be terminated
         
         time_t _lastActivity;					//* Timestamp of last received data
+        time_t _connectTime;                    //* Timestamp of connection time
         
         User* _user;							//* Pointer to associated User (NULL until registered)
 

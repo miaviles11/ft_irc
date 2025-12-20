@@ -254,16 +254,29 @@ void Server::cmdQuit(ClientConnection* client, const Message& msg)
 
 void Server::cmdPing(ClientConnection* client, const Message& msg)
 {
+    // PING puede tener 1 o 2 parámetros:
+    // PING token1
+    // PING token1 token2
     if (msg.params.empty())
         return sendError(client, ERR_NEEDMOREPARAMS, "PING");
     
     std::string token = msg.params[0];
-    client->queueSend("PONG ft_irc :" + token + "\r\n");
+    
+    // Si hay un segundo parámetro, es para especificar a qué servidor enviar PONG
+    // En nuestro caso, ignoramos el segundo parámetro y siempre respondemos nosotros
+    client->queueSend(":ft_irc PONG ft_irc :" + token + "\r\n");
 }
 
 void Server::cmdPong(ClientConnection* client, const Message& msg)
 {
+    // PONG se recibe cuando el cliente responde a nuestro PING
+    // RFC 1459: Se usa para mantener la conexión viva y como respuesta a PING
     (void)msg;
-    // Solo sirve para mantener viva la conexión, actualiza el timestamp de actividad
+    
+    // Actualizar timestamp de actividad para indicar que el cliente está vivo
     client->updateActivity();
+    
+    std::cout << GREEN << "[PING/PONG] Client (fd=" << client->getFd() 
+              << ") sent PONG - connection alive" << RESET << std::endl;
 }
+

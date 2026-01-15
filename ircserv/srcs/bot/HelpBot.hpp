@@ -46,6 +46,7 @@ private:
     // Buffer & channels
     std::string _recvBuffer;
     std::vector<std::string> _channels;
+    std::string stripAnsiCodes(const std::string& str);
 
 public:
     // Constructor & Destructor

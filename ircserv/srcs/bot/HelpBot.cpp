@@ -6,7 +6,7 @@
 /*   By: rmunoz-c <rmunoz-c@student.42.fr>          #+#  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026-01-13 13:35:08 by rmunoz-c          #+#    #+#             */
-/*   Updated: 2026-01-13 13:35:08 by rmunoz-c         ###   ########.fr       */
+/*   Updated: 2026-01-15 20:15:00 by rmunoz-c         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,7 +19,8 @@
 #include <iostream>
 #include <sstream>
 #include <algorithm>
-#include <cstdlib> 
+#include <cstdlib>
+#include <ctime>
 
 // ============================================================================
 // CONSTRUCTOR & DESTRUCTOR
@@ -46,7 +47,6 @@ HelpBot::~HelpBot()
 
 bool HelpBot::connect()
 {
-    // Create socket
     _sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (_sockfd < 0)
     {
@@ -54,7 +54,6 @@ bool HelpBot::connect()
         return false;
     }
 
-    // Setup server address
     struct sockaddr_in serverAddr;
     std::memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET;
@@ -68,7 +67,6 @@ bool HelpBot::connect()
         return false;
     }
 
-    // Connect to server
     if (::connect(_sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0)
     {
         std::cerr << "[BOT] Error: Failed to connect to " << _serverIP 
@@ -84,16 +82,11 @@ bool HelpBot::connect()
 
 bool HelpBot::authenticate()
 {
-    // Send PASS
     sendRaw("PASS " + _password);
-    
-    // Send NICK
     sendRaw("NICK " + _nickname);
-    
-    // Send USER
     sendRaw("USER " + _username + " 0 * :" + _realname);
     
-    std::cout << "[BOT] Authentication sent (PASS/NICK/USER)" << std::endl;
+    std::cout << "[BOT] Authentication sent" << std::endl;
     
     _authenticated = true;
     _startTime = std::time(NULL);
@@ -124,11 +117,10 @@ void HelpBot::run()
     {
         if (!recv())
         {
-            std::cerr << "[BOT] Connection lost or error in recv()" << std::endl;
+            std::cerr << "[BOT] Connection lost" << std::endl;
             break;
         }
         
-        // Process all complete lines in buffer
         size_t pos;
         while ((pos = _recvBuffer.find("\r\n")) != std::string::npos)
         {
@@ -168,13 +160,7 @@ bool HelpBot::recv()
     ssize_t bytes = ::recv(_sockfd, buffer, sizeof(buffer) - 1, 0);
     
     if (bytes <= 0)
-    {
-        if (bytes == 0)
-            std::cerr << "[BOT] Server closed connection" << std::endl;
-        else
-            std::cerr << "[BOT] recv() error" << std::endl;
         return false;
-    }
     
     _recvBuffer.append(buffer, bytes);
     return true;
@@ -186,9 +172,35 @@ void HelpBot::sendRaw(const std::string& raw)
     ssize_t sent = send(_sockfd, msg.c_str(), msg.length(), 0);
     
     if (sent < 0)
-        std::cerr << "[BOT] Error sending: " << raw << std::endl;
+        std::cerr << "[BOT] Error sending message" << std::endl;
     else
         std::cout << "[BOT] -> " << raw << std::endl;
+}
+
+std::string HelpBot::stripAnsiCodes(const std::string& str)
+{
+    std::string result;
+    bool inEscape = false;
+    
+    for (size_t i = 0; i < str.length(); ++i)
+    {
+        if (str[i] == '\033')
+        {
+            inEscape = true;
+            continue;
+        }
+        
+        if (inEscape)
+        {
+            if (str[i] == 'm')
+                inEscape = false;
+            continue;
+        }
+        
+        result += str[i];
+    }
+    
+    return result;
 }
 
 void HelpBot::sendMessage(const std::string& target, const std::string& msg)
@@ -202,49 +214,72 @@ void HelpBot::sendMessage(const std::string& target, const std::string& msg)
 
 void HelpBot::processMessage(const std::string& line)
 {
-    // Handle PING from server (keep-alive)
-    if (line.find("PING") == 0)
+    // Clean ANSI codes from entire line
+    std::string cleanLine = stripAnsiCodes(line);
+    
+    // Remove IRCv3 tags (@time=XX:XX:XX)
+    if (!cleanLine.empty() && cleanLine[0] == '@')
     {
-        std::string pongResponse = line;
+        size_t spacePos = cleanLine.find(' ');
+        if (spacePos != std::string::npos)
+            cleanLine = cleanLine.substr(spacePos + 1);
+    }
+    
+    // Handle PING/PONG
+    if (cleanLine.find("PING") != std::string::npos)
+    {
+        size_t pingPos = cleanLine.find("PING");
+        std::string pongResponse = cleanLine.substr(pingPos);
         pongResponse.replace(0, 4, "PONG");
         sendRaw(pongResponse);
         return;
     }
     
-    // Extract command from line
-    std::string cmd = extractCommand(line);
-    
-    // Only process PRIVMSG (user messages)
-    if (cmd != "PRIVMSG")
+    // Find PRIVMSG
+    size_t privmsgPos = cleanLine.find("PRIVMSG");
+    if (privmsgPos == std::string::npos)
         return;
     
-    // Parse PRIVMSG format: :sender PRIVMSG target :message
-    std::vector<std::string> params = splitParams(line);
+    // Extract from "PRIVMSG" onwards
+    std::string relevantPart = cleanLine.substr(privmsgPos);
     
-    if (params.size() < 3)
+    // Parse: "PRIVMSG target :message"
+    std::istringstream iss(relevantPart);
+    std::string cmd, target, message;
+    
+    if (!(iss >> cmd >> target))
         return;
     
-    std::string sender = extractSender(line);
-    std::string target = params[1];  // Channel or nickname
-    std::string message = params[2]; // Message content
+    std::getline(iss, message);
     
-    // Remove leading ':' from message if present
+    // Clean message
+    if (!message.empty() && message[0] == ' ')
+        message = message.substr(1);
     if (!message.empty() && message[0] == ':')
         message = message.substr(1);
     
-    // Check if message is a command (starts with !)
-    if (!message.empty() && message[0] == '!')
+    // Extract sender from prefix (before PRIVMSG)
+    std::string sender = "";
+    std::string prefix = cleanLine.substr(0, privmsgPos);
+    
+    size_t colonPos = prefix.find(':');
+    if (colonPos != std::string::npos)
     {
-        handleCommand(sender, target, message);
+        size_t exclamation = prefix.find('!', colonPos);
+        if (exclamation != std::string::npos)
+            sender = prefix.substr(colonPos + 1, exclamation - colonPos - 1);
     }
+    
+    // Process command if message starts with !
+    if (!message.empty() && message[0] == '!')
+        handleCommand(sender, target, message);
 }
 
 void HelpBot::handleCommand(const std::string& sender, 
                             const std::string& target, 
                             const std::string& message)
 {
-    // Determine response target: if message was sent to bot directly, reply to sender
-    // Otherwise, reply to the channel
+    // Determine response target
     std::string responseTarget = (target == _nickname) ? sender : target;
     
     // Extract command and arguments
@@ -257,7 +292,7 @@ void HelpBot::handleCommand(const std::string& sender,
     if (!args.empty() && args[0] == ' ')
         args = args.substr(1);
     
-    // Convert command to lowercase for case-insensitive matching
+    // Convert to lowercase for case-insensitive matching
     std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
     
     // Execute commands
@@ -281,8 +316,6 @@ void HelpBot::handleCommand(const std::string& sender,
 
 std::string HelpBot::extractSender(const std::string& prefix)
 {
-    // Format: :nickname!username@hostname
-    // Extract only the nickname part
     if (prefix.empty() || prefix[0] != ':')
         return "";
     
@@ -299,10 +332,8 @@ std::string HelpBot::extractSender(const std::string& prefix)
 
 std::string HelpBot::extractCommand(const std::string& line)
 {
-    // Line format: [:prefix] COMMAND [params]
     size_t start = 0;
     
-    // Skip prefix if present
     if (!line.empty() && line[0] == ':')
     {
         start = line.find(' ');
@@ -311,7 +342,6 @@ std::string HelpBot::extractCommand(const std::string& line)
         start++;
     }
     
-    // Extract command
     size_t end = line.find(' ', start);
     if (end == std::string::npos)
         return line.substr(start);
@@ -322,43 +352,47 @@ std::string HelpBot::extractCommand(const std::string& line)
 std::vector<std::string> HelpBot::splitParams(const std::string& line)
 {
     std::vector<std::string> params;
+    std::string temp = line;
     
-    // Skip prefix
-    size_t pos = 0;
-    if (!line.empty() && line[0] == ':')
+    if (!temp.empty() && temp[0] == ':')
     {
-        pos = line.find(' ');
-        if (pos == std::string::npos)
+        size_t spacePos = temp.find(' ');
+        if (spacePos == std::string::npos)
             return params;
-        pos++;
+        temp = temp.substr(spacePos + 1);
     }
     
-    // Skip command
-    pos = line.find(' ', pos);
-    if (pos == std::string::npos)
+    size_t spacePos = temp.find(' ');
+    if (spacePos == std::string::npos)
         return params;
-    pos++;
+    temp = temp.substr(spacePos + 1);
     
-    // Extract parameters
-    while (pos < line.length())
+    while (!temp.empty())
     {
-        // Handle trailing parameter (starts with :)
-        if (line[pos] == ':')
+        size_t start = 0;
+        while (start < temp.length() && temp[start] == ' ')
+            start++;
+        
+        if (start >= temp.length())
+            break;
+        
+        temp = temp.substr(start);
+        
+        if (temp[0] == ':')
         {
-            params.push_back(line.substr(pos));
+            params.push_back(temp);
             break;
         }
         
-        // Extract regular parameter
-        size_t nextSpace = line.find(' ', pos);
+        size_t nextSpace = temp.find(' ');
         if (nextSpace == std::string::npos)
         {
-            params.push_back(line.substr(pos));
+            params.push_back(temp);
             break;
         }
         
-        params.push_back(line.substr(pos, nextSpace - pos));
-        pos = nextSpace + 1;
+        params.push_back(temp.substr(0, nextSpace));
+        temp = temp.substr(nextSpace + 1);
     }
     
     return params;
@@ -415,7 +449,6 @@ void HelpBot::cmdEcho(const std::string& target, const std::string& msg)
 
 void HelpBot::cmdJoke(const std::string& target)
 {
-    // Array of jokes
     const char* jokes[] = {
         "Why do programmers prefer dark mode? Because light attracts bugs!",
         "Why did the programmer quit his job? Because he didn't get arrays!",
@@ -430,8 +463,6 @@ void HelpBot::cmdJoke(const std::string& target)
     };
     
     const int numJokes = sizeof(jokes) / sizeof(jokes[0]);
-    
-    // Select random joke
     int randomIndex = std::rand() % numJokes;
     
     sendMessage(target, jokes[randomIndex]);

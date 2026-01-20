@@ -653,16 +653,6 @@ bash weechat
 
 
 
-# TODO: 
-- TIMESTAMPS ✅✅
-- Envio de mensajes bonito ✅✅
-- Mensaje de error cuando se pasa mal la contraseña ✅✅
-- PING PONG automatico
-- Comando NAMES ✅✅
-- Comando WHO y WHOIS ✅✅
-- Bot (BONUS)
-
-
 # USUARIOS DE PRUEBA:
 
 PASS pass123
@@ -684,3 +674,310 @@ JOIN #general
 # MENSAJE DE PRUEBA
 
 PRIVMSG #general :HOLAAA
+
+
+
+═══════════════════════════════════════════════════════════════
+
+🤖 BONUS: HELPBOT (BOT DE IRC)
+
+REQUISITOS PREVIOS:
+bash# 1. Compilar el bot
+make bot
+
+# 2. En un terminal separado, asegúrate de tener el servidor corriendo:
+./ircserv 6667 pass123
+
+
+
+Test B.1: Iniciar el bot
+bash# Terminal Bot
+./bot 127.0.0.1 6667 pass123
+
+# ✅ Debes ver:
+[BOT] Connected to 127.0.0.1:6667
+[BOT] -> PASS pass123
+[BOT] -> NICK HelpBot
+[BOT] -> USER helpbot 0 * :IRC Help Bot
+[BOT] Authentication sent
+[BOT] -> JOIN #general
+[BOT] Joining channel: #general
+[BOT] -> JOIN #help
+[BOT] Joining channel: #help
+[BOT] Bot is now running. Listening for messages...
+
+# ✅ El bot se une automáticamente a #general y #help
+
+
+
+Test B.2: Verificar que el bot está en el canal
+bash# Terminal 2 (Alice)
+nc localhost 6667
+PASS pass123
+NICK Alice
+USER alice 0 * :Alice
+JOIN #general
+NAMES #general
+
+# ✅ Debes ver:
+:ft_irc 353 Alice = #general :@HelpBot Alice
+
+
+
+Test B.3: Comando !help (lista de comandos)
+bash# Terminal 2 (Alice en #general)
+PRIVMSG #general :!help
+
+# ✅ Alice recibe:
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #general :Available commands: !help, !time, !uptime, !echo <msg>, !joke, !ping
+
+# ✅ En el bot (Terminal Bot):
+[BOT] <- :Alice!alice@127.0.0.1 PRIVMSG #general :!help
+[BOT] -> PRIVMSG #general :Available commands: !help, !time, !uptime, !echo <msg>, !joke, !ping
+
+
+
+Test B.4: Comando !time (hora actual)
+bash# Terminal 2 (Alice)
+PRIVMSG #general :!time
+
+# ✅ Alice recibe:
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #general :Current time: 2026-01-20 18:45:30
+                                                            
+
+
+Test B.5: Comando !uptime (tiempo de funcionamiento)
+bash# Terminal 2 (Alice - esperar unos segundos después de iniciar el bot)
+PRIVMSG #general :!uptime
+
+# ✅ Alice recibe:
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #general :Bot uptime: 0h 2m 45s
+                                                         
+
+
+Test B.6: Comando !echo (repetir mensaje)
+bash# Terminal 2 (Alice)
+PRIVMSG #general :!echo Hello IRC World!
+
+# ✅ Alice recibe:
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #general :Hello IRC World!
+
+# Probar sin argumentos:
+PRIVMSG #general :!echo
+
+# ✅ Alice recibe:
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #general :Usage: !echo <message>
+
+
+
+Test B.7: Comando !joke (chiste aleatorio)
+bash# Terminal 2 (Alice)
+PRIVMSG #general :!joke
+
+# ✅ Alice recibe (uno de 10 chistes aleatorios):
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #general :Why do programmers prefer dark mode? Because light attracts bugs!
+
+# Ejecutar varias veces para ver diferentes chistes:
+PRIVMSG #general :!joke
+PRIVMSG #general :!joke
+
+
+
+Test B.8: Comando !ping (test de conexión)
+bash# Terminal 2 (Alice)
+PRIVMSG #general :!ping
+
+# ✅ Alice recibe:
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #general :Pong! 🏓
+
+
+
+Test B.9: Comandos case-insensitive
+bash# Terminal 2 (Alice)
+PRIVMSG #general :!HELP
+PRIVMSG #general :!Time
+PRIVMSG #general :!PiNg
+
+# ✅ Todos funcionan (el bot convierte a lowercase)
+
+
+
+Test B.10: Mensaje privado directo al bot (canal → usuario)
+bash# Terminal 2 (Alice)
+PRIVMSG HelpBot :!help
+
+# ✅ Alice recibe (en PRIVADO, NO en el canal):
+:HelpBot!helpbot@127.0.0.1 PRIVMSG Alice :Available commands: !help, !time, !uptime, !echo <msg>, !joke, !ping
+
+# ⚠️ IMPORTANTE: Otros usuarios en #general NO ven este intercambio
+
+
+
+Test B.11: Comandos privados (todas las funciones)
+bash# Terminal 2 (Alice en privado con el bot)
+PRIVMSG HelpBot :!time
+PRIVMSG HelpBot :!uptime
+PRIVMSG HelpBot :!echo Testing private echo
+PRIVMSG HelpBot :!joke
+PRIVMSG HelpBot :!ping
+
+# ✅ Todas las respuestas llegan en PRIVADO a Alice
+
+
+
+Test B.12: Múltiples usuarios usando el bot simultáneamente
+bash# Terminal 2 (Alice)
+PRIVMSG #general :!time
+
+# Terminal 3 (Bob - conectado en #general)
+nc localhost 6667
+PASS pass123
+NICK Bob
+USER bob 0 * :Bob
+JOIN #general
+PRIVMSG #general :!joke
+
+# ✅ Ambos reciben sus respuestas en el canal
+# ✅ El bot NO se confunde entre usuarios
+
+
+
+Test B.13: Bot en canal #help
+bash# Terminal 2 (Alice)
+JOIN #help
+PRIVMSG #help :!help
+
+# ✅ El bot también responde en #help
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #help :Available commands: !help, !time, !uptime, !echo <msg>, !joke, !ping
+
+
+
+Test B.14: Comandos inválidos ignorados
+bash# Terminal 2 (Alice)
+PRIVMSG #general :!invalid
+PRIVMSG #general :!xyz123
+PRIVMSG #general :Hello everyone
+
+# ✅ El bot NO responde (solo procesa comandos válidos que empiezan con !)
+# ✅ Mensajes normales sin '!' son ignorados
+
+
+
+Test B.15: Bot responde a PING del servidor automáticamente
+bash# Verificar en el Terminal Bot mientras está corriendo
+
+# ✅ Si el servidor envía PING, debes ver:
+[BOT] <- PING :ft_irc
+[BOT] -> PONG :ft_irc
+
+# ⚠️ IMPORTANTE: Esto sucede automáticamente, no requiere intervención
+
+
+
+Test B.16: Verificar que el bot limpia códigos ANSI correctamente
+bash# Terminal 2 (Alice)
+PRIVMSG #general :!help
+
+# ✅ El bot debe responder correctamente incluso si el servidor
+#    envía mensajes con códigos de color ANSI
+# ✅ No debe enviar "56:13" o caracteres extraños como target
+
+# Verificar en el servidor que NO aparecen errores:
+# ❌ NO debe ver: [SERVER DEBUG] ERROR: Channel not found
+# ✅ El mensaje se transmite limpiamente
+
+
+
+Test B.17: Bot permanece activo con servidor bajo carga
+bash# Terminal 4 (generar tráfico)
+for i in {1..50}; do 
+  echo "PRIVMSG #general :Message $i"; 
+done | nc localhost 6667 &
+
+# Terminal 2 (Alice - mientras hay tráfico)
+PRIVMSG #general :!ping
+
+# ✅ El bot sigue respondiendo correctamente
+# ✅ NO se crashea con múltiples mensajes
+
+
+
+Test B.18: Detener el bot con Ctrl+C
+bash# Terminal Bot
+# Presionar Ctrl+C
+
+# ✅ El bot debería cerrarse limpiamente:
+^C
+[BOT] Bot stopped.
+
+# ✅ En el servidor:
+[DISCONNECT] fd=X (graceful close)
+
+# ✅ Otros usuarios en #general y #help ven:
+:HelpBot!helpbot@127.0.0.1 QUIT :Connection closed
+
+
+
+Test B.19: Reiniciar el bot y verificar uptime reseteado
+bash# Terminal Bot (después de cerrar y reiniciar)
+./bot 127.0.0.1 6667 pass123
+
+# Esperar unos segundos...
+
+# Terminal 2 (Alice)
+PRIVMSG #general :!uptime
+
+# ✅ Alice recibe:
+:HelpBot!helpbot@127.0.0.1 PRIVMSG #general :Bot uptime: 0h 0m 15s
+
+
+
+Test B.20: Bot con parámetros incorrectos
+bash# Probar con IP inválida
+./bot 999.999.999.999 6667 pass123
+
+# ✅ Debe mostrar error sin crashear:
+[BOT] Error: Invalid IP address
+
+# Probar con puerto inválido
+./bot 127.0.0.1 99999 pass123
+
+# ✅ Debe fallar al conectar:
+[BOT] Error: Failed to connect to 127.0.0.1:99999
+
+# Probar con contraseña incorrecta
+./bot 127.0.0.1 6667 wrongpass
+
+# ✅ Debe conectar pero ser rechazado:
+[BOT] <- :ft_irc 464 * :Password incorrect
+# Y luego se cierra
+
+
+
+🎯 RESUMEN DEL BOT:
+
+Comandos disponibles:
+  !help       - Lista de comandos disponibles
+  !time       - Muestra la hora actual del sistema
+  !uptime     - Muestra cuánto tiempo lleva corriendo el bot
+  !echo <msg> - Repite el mensaje proporcionado
+  !joke       - Cuenta un chiste aleatorio de programación
+  !ping       - Responde con "Pong! 🏓"
+
+Características:
+  ✅ Se conecta automáticamente al servidor
+  ✅ Se une a #general y #help al iniciar
+  ✅ Responde en canales públicos
+  ✅ Responde a mensajes privados
+  ✅ Comandos case-insensitive
+  ✅ Maneja PING/PONG automáticamente
+  ✅ Limpia códigos ANSI del servidor
+  ✅ No se crashea con múltiples usuarios
+  ✅ Cierre limpio con Ctrl+C
+
+Uso:
+  make bot
+  ./bot <IP> <PORT> <PASSWORD>
+
+Ejemplo:
+  ./bot 127.0.0.1 6667 pass123

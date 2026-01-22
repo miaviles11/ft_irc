@@ -1,6 +1,6 @@
 # 🌐 FT_IRC - Internet Relay Chat Server
 
-_Este proyecto ha sido creado como parte del currículo de 42 por <miaviles>, <rmunoz-c>, <carlsanc>_
+_Este proyecto ha sido creado como parte del currículo de 42 por miaviles, rmunoz-c, carlsanc_
 
 - Miguel Ángel Avilés (miaviles) - [GitHub](https://github.com/miaviles11)
 - Rubén Muñoz Calderón (rmunoz-c) - [GitHub](https://github.com/rmunoz-c)

@@ -6,31 +6,31 @@
 #include <set>
 #include <algorithm>
 
-// Forward declaration para evitar dependencias circulares
+// Forward declaration to avoid circular dependencies
 class User;
 
 class Channel
 {
     public:
-        // Constructor y Destructor
+        // Constructor and Destructor
         Channel(const std::string& name);
         ~Channel();
 
         // ------------------------------------------------------------------
-        // GETTERS BÁSICOS
+        // BASIC GETTERS
         // ------------------------------------------------------------------
         const std::string& getName() const;
         const std::string& getTopic() const;
         const std::string& getKey() const;
         
-        // Límites y Conteo
+        // Limits and Count
         size_t getUserCount() const;
         int    getLimit() const;
         
         // ------------------------------------------------------------------
-        // MODOS DEL CANAL (+i, +t, +k, +l)
+        // CHANNEL MODES (+i, +t, +k, +l)
         // ------------------------------------------------------------------
-        std::string getModes() const;           // Devuelve string tipo "+itk" para RPL_CHANNELMODEIS
+        std::string getModes() const;           // Returns string like "+itk" for RPL_CHANNELMODEIS
         bool        hasMode(char mode) const;
         void        setMode(char mode, bool active);
         
@@ -39,36 +39,36 @@ class Channel
         void        setTopic(const std::string& topic);
 
         // ------------------------------------------------------------------
-        // GESTIÓN DE MIEMBROS
+        // MEMBER MANAGEMENT
         // ------------------------------------------------------------------
         void    addMember(User* user);
         void    removeMember(User* user);
         bool    isMember(User* user) const;
-        User* getMember(const std::string& nick) const;
+        User*   getMember(const std::string& nick) const;
 
         /**
-         * [IMPORTANTE] NECESARIO PARA EL COMANDO NICK (Evitar Spam)
-         * Devuelve la lista completa de usuarios para poder iterar y filtrar
-         * a quién enviamos notificaciones globales.
-         * Que nadie toque esto >:(
+         * [IMPORTANT] REQUIRED FOR NICK COMMAND (Avoid Spam)
+         * Returns the complete list of users to iterate and filter
+         * who we send global notifications to.
+         * Don't touch this >:(
          */
         const std::vector<User*>& getMembers() const;
 
         // ------------------------------------------------------------------
-        // GESTIÓN DE OPERADORES (+o)
+        // OPERATOR MANAGEMENT (+o)
         // ------------------------------------------------------------------
         void    addOperator(User* user);
         void    removeOperator(User* user);
         bool    isOperator(User* user) const;
 
         // ------------------------------------------------------------------
-        // GESTIÓN DE INVITACIONES (+i)
+        // INVITE MANAGEMENT (+i)
         // ------------------------------------------------------------------
         void    addInvite(const std::string& nick);
-        bool    isInvited(User* user) const; // Verifica si el usuario está en la lista blanca
+        bool    isInvited(User* user) const; // Checks if user is in the whitelist
 
         // ------------------------------------------------------------------
-        // COMUNICACIÓN
+        // COMMUNICATION
         // ------------------------------------------------------------------
         /**
          * Broadcast a message to all channel members.
@@ -82,27 +82,27 @@ class Channel
          */
         void    broadcast(const std::string& msg, User* excludeUser);
         
-        // Genera la lista de nombres para RPL_NAMREPLY (ej: "@Admin +User1 User2")
+        // Generates the names list for RPL_NAMREPLY (e.g.: "@Admin +User1 User2")
         std::string getNamesList() const;
 
     private:
         std::string _name;
         std::string _topic;
-        std::string _key;       // Contraseña del canal (+k)
-        int         _limit;     // Límite de usuarios (+l), 0 = sin límite
+        std::string _key;       // Channel password (+k)
+        int         _limit;     // User limit (+l), 0 = no limit
 
-        // Flags de modos booleanos
+        // Boolean mode flags
         bool _inviteOnly;       // +i
         bool _topicOpOnly;      // +t
-        bool _hasKey;           // +k activado
-        bool _hasLimit;         // +l activado
+        bool _hasKey;           // +k enabled
+        bool _hasLimit;         // +l enabled
 
-        // Listas internas
-        std::vector<User*>    _members;   // Todos los usuarios dentro
-        std::vector<User*>    _operators; // Subconjunto de usuarios que son OP
-        std::set<std::string> _invites;   // Nicks invitados (whitelist para +i)
+        // Internal lists
+        std::vector<User*>    _members;   // All users inside
+        std::vector<User*>    _operators; // Subset of users who are OP
+        std::set<std::string> _invites;   // Invited nicks (whitelist for +i)
 
-        // Constructor privado para prohibir canales sin nombre
+        // Private constructor to forbid channels without name
         Channel(); 
 };
 

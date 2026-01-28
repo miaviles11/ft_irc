@@ -87,24 +87,24 @@ class Server {
         Channel* createChannel(const std::string& name);
 
 		/*--------------------------------------------------------------------*/
-        /* NUEVO: SISTEMA DE COMANDOS                                         */
+        /* NEW: COMMAND SYSTEM                                                */
         /*--------------------------------------------------------------------*/
         
-        // 1. Definición del tipo de función para los comandos
-        //    (Recibe el cliente que envió el mensaje y el mensaje parseado)
+        // 1. Function type definition for commands
+        //    (Receives the client who sent the message and the parsed message)
         typedef void (Server::*CommandHandler)(ClientConnection*, const Message&);
 
-        // 2. Mapa para asociar strings ("JOIN") con funciones (&Server::cmdJoin)
+        // 2. Map to associate strings ("JOIN") with functions (&Server::cmdJoin)
         std::map<std::string, CommandHandler> _commandMap;
 
-        // 3. Función para rellenar el mapa al inicio
+        // 3. Function to fill the map at startup
         void initCommands();
 
 		/*--------------------------------------------------------------------*/
-        /* NUEVO: PROTOTIPOS DE LOS COMANDOS (Implementar en Commands.cpp)    */
+        /* NEW: COMMAND PROTOTYPES (Implement in Commands.cpp)               */
         /*--------------------------------------------------------------------*/
         
-        // Autenticación
+        // Authentication
         void cmdPass(ClientConnection* client, const Message& msg);
         void cmdNick(ClientConnection* client, const Message& msg);
         void cmdUser(ClientConnection* client, const Message& msg);
@@ -112,7 +112,7 @@ class Server {
         void cmdPong(ClientConnection* client, const Message& msg);
         void cmdQuit(ClientConnection* client, const Message& msg);
 
-        // Canales y Comunicación
+        // Channels and Communication
         void cmdJoin(ClientConnection* client, const Message& msg);
         void cmdPart(ClientConnection* client, const Message& msg);
         void cmdPrivMsg(ClientConnection* client, const Message& msg);
@@ -120,10 +120,10 @@ class Server {
 		void cmdNames(ClientConnection* client, const Message& msg);
 		void cmdWho(ClientConnection* client, const Message& msg);
 		void cmdWhois(ClientConnection* client, const Message& msg);
-		// Función auxiliar para WHOIS
+		// Auxiliary function for WHOIS
 		std::string getChannelsForUser(User* user) const;
 
-        // Operadores
+        // Operators
         void cmdKick(ClientConnection* client, const Message& msg);
         void cmdInvite(ClientConnection* client, const Message& msg);
         void cmdTopic(ClientConnection* client, const Message& msg);

@@ -18,10 +18,10 @@
 
 class Parser {
     public:
-        // Método estático: entra string sucio, sale estructura limpia
+        // Static method: receives raw string, returns clean structure
         static Message parse(const std::string& rawLine);
     private:
-        Parser(); // No instanciable
+        Parser(); // Not instantiable
         static std::string trim(const std::string& str);
         static std::string toUpper(const std::string& str);
 };

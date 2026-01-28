@@ -19,8 +19,8 @@
 #include "../utils/Colors.hpp"
 #include <sstream>
 
-// NOTA: Estas funciones son miembros de Server, pero están implementadas aquí
-// para organizar el código por temática.
+// NOTE: These functions are Server members, but implemented here
+// to organize code by topic.
 
 Channel* Server::getChannel(const std::string& name)
 {
@@ -35,14 +35,14 @@ Channel* Server::getChannel(const std::string& name)
 Channel* Server::createChannel(const std::string& name)
 {
     Channel* newChan = new Channel(name);
-    newChan->setMode('t', true); //-R- Added to ensure the topic is protected by default (+t mode)
+    newChan->setMode('t', true); //-R- Added to ensure topic is protected by default (+t mode)
     channels_.push_back(newChan);
     return newChan;
 }
 
 void Server::cmdJoin(ClientConnection* client, const Message& msg)
 {
-    // CRÍTICO: Verificar que el usuario esté registrado
+    // CRITICAL: Verify user is registered
     if (!client->isRegistered()) {
         sendError(client, ERR_NOTREGISTERED, "");
         return;
@@ -60,12 +60,12 @@ void Server::cmdJoin(ClientConnection* client, const Message& msg)
         std::string chanName = targets[i];
         std::string key = (i < keys.size()) ? keys[i] : "";
 
-        // Corrección: Asegurar prefijo válido (# o &). Si no tiene, poner #
+        // Fix: Ensure valid prefix (# or &). If missing, add #
         if (chanName.empty()) continue;
         if (chanName[0] != '#' && chanName[0] != '&') 
             chanName = "#" + chanName;
 
-        // RFC 2812: Los nombres de canal no pueden contener espacios, comas, o control chars
+        // RFC 2812: Channel names cannot contain spaces, commas, or control chars
         bool invalidName = false;
         for (size_t j = 0; j < chanName.length(); ++j) {
             if (chanName[j] == ' ' || chanName[j] == ',' || chanName[j] == '\x07') {
@@ -80,15 +80,15 @@ void Server::cmdJoin(ClientConnection* client, const Message& msg)
         if (!channel)
         {
             channel = createChannel(chanName);
-            // El creador se convierte en Operador automáticamente
+            // Creator becomes Operator automatically
             channel->addOperator(client->getUser());
         }
 
-        // Si ya está dentro, no hacer nada
+        // If already inside, do nothing
         if (channel->isMember(client->getUser()))
             continue;
 
-        // --- VALIDACIONES DE MODOS ---
+        // --- MODE VALIDATIONS ---
         if (channel->hasMode('i') && !channel->isInvited(client->getUser()))
         {
             sendError(client, ERR_INVITEONLYCHAN, chanName);
@@ -105,28 +105,28 @@ void Server::cmdJoin(ClientConnection* client, const Message& msg)
             continue;
         }
 
-        // Unirse efectivamente
+        // Actually join
         channel->addMember(client->getUser());
         client->getUser()->joinChannel(channel);
 
-        // Obtener timestamp
+        // Get timestamp
         std::string timestamp = getCurrentTimestamp();
         
-        // Notificar a todos en el canal (incluido el nuevo usuario)
+        // Notify everyone in channel (including new user)
         std::string joinMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
                                     BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
                                     " " + BRIGHT_YELLOW + "JOIN" + RESET + " " +
                                     CYAN + chanName + RESET + "\r\n";
         channel->broadcast(joinMsg, NULL);
 
-        // Enviar Topic
+        // Send Topic
         if (channel->getTopic().empty())
             sendReply(client, RPL_NOTOPIC, chanName + std::string(" :") + YELLOW + "No topic is set" + RESET);
         else
             sendReply(client, RPL_TOPIC, chanName + std::string(" :") + CYAN + channel->getTopic() + RESET);
 
-        // Enviar lista de Nombres (RPL_NAMREPLY)
-        std::string symbol = "="; // Canal público
+        // Send Names list (RPL_NAMREPLY)
+        std::string symbol = "="; // Public channel
         sendReply(client, RPL_NAMREPLY, symbol + " " + chanName + std::string(" :") + GREEN + channel->getNamesList() + RESET);
         sendReply(client, RPL_ENDOFNAMES, chanName + std::string(" :") + CYAN + "End of /NAMES list" + RESET);
     }
@@ -160,19 +160,19 @@ void Server::cmdPart(ClientConnection* client, const Message& msg)
             continue;
         }
 
-        // Obtener timestamp
+        // Get timestamp
         std::string timestamp = getCurrentTimestamp();
 
         std::string partMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
                                 BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
                                 " " + BRIGHT_YELLOW + "PART" + RESET + " " +
                                 CYAN + chanName + RESET + " :" + reason + "\r\n";
-        channel->broadcast(partMsg, NULL); // Enviar a todos
+        channel->broadcast(partMsg, NULL); // Send to everyone
 
         channel->removeMember(client->getUser());
         client->getUser()->leaveChannel(channel);
 
-        // Borrar canal si se queda vacío
+        // Delete channel if empty
         if (channel->getUserCount() == 0)
         {
             for (std::vector<Channel*>::iterator it = channels_.begin(); it != channels_.end(); )
@@ -200,7 +200,7 @@ void Server::cmdTopic(ClientConnection* client, const Message& msg)
     Channel* channel = getChannel(msg.params[0]);
     if (!channel) return sendError(client, ERR_NOSUCHCHANNEL, msg.params[0]);
 
-    // Solo consultar el topic
+    // Only query topic
     if (msg.params.size() == 1)
     {
         if (channel->getTopic().empty())
@@ -210,40 +210,40 @@ void Server::cmdTopic(ClientConnection* client, const Message& msg)
         return;
     }
 
-    // Intentar cambiar el topic
+    // Attempt to change topic
     if (channel->hasMode('t') && !channel->isOperator(client->getUser()))
         return sendError(client, ERR_CHANOPRIVSNEEDED, channel->getName());
 
     channel->setTopic(msg.params[1]);
     
-    // Obtener timestamp
+    // Get timestamp
     std::string timestamp = getCurrentTimestamp();
 
-    // Notificar el cambio a todos
+    // Notify change to everyone
     std::string topicMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
                             BRIGHT_CYAN + ":" + client->getUser()->getPrefix() + RESET +
                             " " + BRIGHT_YELLOW + "TOPIC" + RESET + " " +
                             CYAN + channel->getName() + RESET + " :" +
                             BRIGHT_GREEN + msg.params[1] + RESET + "\r\n";
-channel->broadcast(topicMsg, NULL);
+    channel->broadcast(topicMsg, NULL);
 }
 
 void Server::cmdNames(ClientConnection* client, const Message& msg)
 {
-    // CRÍTICO: Verificar que el usuario esté registrado
+    // CRITICAL: Verify user is registered
     if (!client->isRegistered()) {
         sendError(client, ERR_NOTREGISTERED, "");
         return;
     }
 
-    // NAMES sin parámetros: listar TODOS los canales visibles
+    // NAMES without params: list ALL visible channels
     if (msg.params.empty())
     {
-        // Iterar por todos los canales
+        // Iterate through all channels
         for (size_t i = 0; i < channels_.size(); ++i)
         {
             Channel* chan = channels_[i];
-            std::string symbol = "="; // = público, @ secreto, * privado
+            std::string symbol = "="; // = public, @ secret, * private
             
             sendReply(client, RPL_NAMREPLY, 
                      symbol + " " + chan->getName() + " :" + 
@@ -254,10 +254,10 @@ void Server::cmdNames(ClientConnection* client, const Message& msg)
         return;
     }
 
-    // NAMES #canal: listar usuarios de un canal específico
+    // NAMES #channel: list users in specific channel
     std::string chanName = msg.params[0];
     
-    // Corrección: Asegurar prefijo válido (# o &). Si no tiene, poner #
+    // Fix: Ensure valid prefix (# or &). If missing, add #
     if (chanName[0] != '#' && chanName[0] != '&') 
         chanName = "#" + chanName;
 
@@ -266,8 +266,8 @@ void Server::cmdNames(ClientConnection* client, const Message& msg)
     if (!channel)
         return sendError(client, ERR_NOSUCHCHANNEL, chanName);
 
-    // Enviar lista de nombres (igual que en JOIN)
-    std::string symbol = "="; // Canal público
+    // Send names list (same as in JOIN)
+    std::string symbol = "="; // Public channel
     sendReply(client, RPL_NAMREPLY, 
              symbol + " " + chanName + " :" + 
              GREEN + channel->getNamesList() + RESET);
@@ -278,14 +278,14 @@ void Server::cmdNames(ClientConnection* client, const Message& msg)
 
 void Server::cmdWho(ClientConnection* client, const Message& msg)
 {
-    // CRÍTICO: Verificar que el usuario esté registrado
+    // CRITICAL: Verify user is registered
     if (!client->isRegistered()) {
         sendError(client, ERR_NOTREGISTERED, "");
         return;
     }
 
-    // WHO sin parámetros: opcional, podríamos listar todos los usuarios visibles
-    // Por simplicidad, enviamos solo END OF WHO
+    // WHO without params: optional, could list all visible users
+    // For simplicity, send only END OF WHO
     if (msg.params.empty())
     {
         sendReply(client, RPL_ENDOFWHO, "* :" + std::string(CYAN) + "End of /WHO list" + RESET);
@@ -294,7 +294,7 @@ void Server::cmdWho(ClientConnection* client, const Message& msg)
 
     std::string target = msg.params[0];
 
-    // ¿Es un canal? (empieza con # o &)
+    // Is it a channel? (starts with # or &)
     if (target[0] == '#' || target[0] == '&')
     {
         Channel* channel = getChannel(target);
@@ -302,21 +302,21 @@ void Server::cmdWho(ClientConnection* client, const Message& msg)
         if (!channel)
             return sendError(client, ERR_NOSUCHCHANNEL, target);
 
-        // Enviar RPL_WHOREPLY (352) para cada miembro del canal
+        // Send RPL_WHOREPLY (352) for each channel member
         const std::vector<User*>& members = channel->getMembers();
         
         for (size_t i = 0; i < members.size(); ++i)
         {
             User* member = members[i];
             
-            // Flags: H = here (presente), G = gone (away)
-            // @ = operador del canal, + = voice
+            // Flags: H = here (present), G = gone (away)
+            // @ = channel operator, + = voice
             std::string flags = std::string(GREEN) + "H" + RESET; // Here
             
             if (channel->isOperator(member))
-                flags = std::string(BRIGHT_YELLOW) + "H@" + RESET; // Operador
+                flags = std::string(BRIGHT_YELLOW) + "H@" + RESET; // Operator
             
-            // Formato RFC 2812 con colores:
+            // RFC 2812 format with colors:
             // <channel> <username> <host> <server> <nick> <flags> :<hopcount> <realname>
             std::string whoReply = CYAN + target + RESET + " " +
                                    BRIGHT_BLUE + member->getUsername() + RESET + " " +
@@ -334,7 +334,7 @@ void Server::cmdWho(ClientConnection* client, const Message& msg)
         return;
     }
 
-    // ¿Es un usuario específico? (buscar por nickname)
+    // Is it a specific user? (search by nickname)
     User* targetUser = NULL;
     
     for (size_t i = 0; i < clients_.size(); ++i)
@@ -350,10 +350,10 @@ void Server::cmdWho(ClientConnection* client, const Message& msg)
     if (!targetUser)
         return sendError(client, ERR_NOSUCHNICK, target);
 
-    // Enviar info del usuario con colores
+    // Send user info with colors
     std::string flags = std::string(GREEN) + "H" + RESET; // Here
     
-    // Formato: * = no canal en común
+    // Format: * = no common channel
     std::string whoReply = std::string(YELLOW) + "*" + RESET + " " +
                        BRIGHT_BLUE + targetUser->getUsername() + RESET + " " +
                        YELLOW + targetUser->getHostname() + RESET + " " +
@@ -380,7 +380,7 @@ std::string Server::getChannelsForUser(User* user) const
             if (!result.empty())
                 result += " ";
             
-            // Añadir prefijo @ si es operador del canal
+            // Add @ prefix if channel operator
             if (chan->isOperator(user))
                 result += "@";
             
@@ -393,13 +393,13 @@ std::string Server::getChannelsForUser(User* user) const
 
 void Server::cmdWhois(ClientConnection* client, const Message& msg)
 {
-    // CRÍTICO: Verificar que el usuario esté registrado
+    // CRITICAL: Verify user is registered
     if (!client->isRegistered()) {
         sendError(client, ERR_NOTREGISTERED, "");
         return;
     }
 
-    // WHOIS requiere al menos un parámetro (nickname)
+    // WHOIS requires at least one parameter (nickname)
     if (msg.params.empty()) {
         sendError(client, ERR_NONICKNAMEGIVEN, "");
         return;
@@ -407,7 +407,7 @@ void Server::cmdWhois(ClientConnection* client, const Message& msg)
 
     std::string targetNick = msg.params[0];
 
-    // Buscar el usuario por nickname
+    // Search user by nickname
     User* targetUser = NULL;
     
     for (size_t i = 0; i < clients_.size(); ++i)
@@ -424,7 +424,7 @@ void Server::cmdWhois(ClientConnection* client, const Message& msg)
         return sendError(client, ERR_NOSUCHNICK, targetNick);
 
     // ============================================================================
-    // RPL_WHOISUSER (311) - Información básica del usuario
+    // RPL_WHOISUSER (311) - Basic user information
     // ============================================================================
     std::string whoisUser = BRIGHT_GREEN + targetNick + RESET + " " +
                            BRIGHT_BLUE + targetUser->getUsername() + RESET + " " +
@@ -433,7 +433,7 @@ void Server::cmdWhois(ClientConnection* client, const Message& msg)
     sendReply(client, RPL_WHOISUSER, whoisUser);
 
     // ============================================================================
-    // RPL_WHOISCHANNELS (319) - Canales donde está el usuario
+    // RPL_WHOISCHANNELS (319) - Channels where user is present
     // ============================================================================
     std::string channels = getChannelsForUser(targetUser);
     if (!channels.empty()) {
@@ -443,7 +443,7 @@ void Server::cmdWhois(ClientConnection* client, const Message& msg)
     }
 
     // ============================================================================
-    // RPL_WHOISSERVER (312) - Información del servidor
+    // RPL_WHOISSERVER (312) - Server information
     // ============================================================================
     std::string whoisServer = BRIGHT_GREEN + targetNick + RESET + " " +
                              MAGENTA + "ft_irc" + RESET + " :" +
@@ -451,9 +451,9 @@ void Server::cmdWhois(ClientConnection* client, const Message& msg)
     sendReply(client, RPL_WHOISSERVER, whoisServer);
 
     // ============================================================================
-    // RPL_WHOISIDLE (317) - Tiempo inactivo y conexión (opcional)
+    // RPL_WHOISIDLE (317) - Idle time and connection (optional)
     // ============================================================================
-    // Buscar el ClientConnection del targetUser
+    // Find ClientConnection of targetUser
     ClientConnection* targetClient = NULL;
     for (size_t i = 0; i < clients_.size(); ++i)
     {
@@ -483,7 +483,7 @@ void Server::cmdWhois(ClientConnection* client, const Message& msg)
     sendReply(client, RPL_WHOISIDLE, whoisIdle);
 
     // ============================================================================
-    // RPL_ENDOFWHOIS (318) - Fin de WHOIS
+    // RPL_ENDOFWHOIS (318) - End of WHOIS
     // ============================================================================
     std::string endWhois = BRIGHT_GREEN + targetNick + RESET + " :" +
                           CYAN + "End of /WHOIS list" + RESET;

@@ -126,14 +126,14 @@ void Server::run()
     while (running_)
     {
         // ------------------------------------------------------------------
-        //  FIX CRÍTICO - los eventos no se notificaban correctamente, por eso hago este fix chiquito :D
+        //  CRITICAL FIX - events weren't being notified correctly, so I made this little fix :D
         // ------------------------------------------------------------------
-        // Revisamos si algún cliente tiene datos pendientes de enviar.
-        // Si es así, le decimos a poll() que nos avise cuando se pueda escribir (POLLOUT).
-        // Si no, solo escuchamos si nos envían datos (POLLIN).
+        // We check if any client has pending data to send.
+        // If so, we tell poll() to notify us when we can write (POLLOUT).
+        // If not, we only listen if they send us data (POLLIN).
         for (size_t i = 0; i < poll_fds_.size(); ++i)
         {
-            // El socket del servidor solo escucha nuevas conexiones (POLLIN)
+            // The server socket only listens for new connections (POLLIN)
             if (poll_fds_[i].fd == server_fd_) 
                 continue;
 
@@ -142,12 +142,12 @@ void Server::run()
             {
                 if (client->hasPendingSend())
                 {
-                    // Queremos leer (si el cliente escribe) O escribir (si hay buffer pendiente)
+                    // We want to read (if client writes) OR write (if there's pending buffer)
                     poll_fds_[i].events = POLLIN | POLLOUT;
                 }
                 else
                 {
-                    // Solo nos interesa leer
+                    // We're only interested in reading
                     poll_fds_[i].events = POLLIN;
                 }
             }
@@ -167,26 +167,26 @@ void Server::run()
         }
         
         //* CHECK EACH SOCKET for activity
-        // No incrementamos 'i' automáticamente en el for loop.
-        // Solo incrementamos si NO borramos el cliente actual.
-        for (size_t i = 0; i < poll_fds_.size(); /* vacío */)
+        // We don't increment 'i' automatically in the for loop.
+        // We only increment if we DON'T delete the current client.
+        for (size_t i = 0; i < poll_fds_.size(); /* empty */)
         {
-            // Caso 1: Server Socket (Nuevas conexiones)
+            // Case 1: Server Socket (New connections)
             if (poll_fds_[i].fd == server_fd_)
             {
                 if (poll_fds_[i].revents & POLLIN)
                     acceptNewConnections();
-                i++; // El server socket nunca se borra aquí
+                i++; // Server socket is never deleted here
             }
-            // Caso 2: Client Socket
+            // Case 2: Client Socket
             else
             {
-                // Si retorna false, el cliente fue borrado y 'poll_fds_' se redujo.
-                // No incrementamos 'i' porque el siguiente cliente ahora está en 'i'.
+                // If it returns false, the client was deleted and 'poll_fds_' was reduced.
+                // We don't increment 'i' because the next client is now at 'i'.
                 if (!handleClientEvent(i))
                     continue; 
                 
-                i++; // Cliente sigue vivo, pasamos al siguiente
+                i++; // Client still alive, move to next
             }
         }
     }
@@ -275,7 +275,7 @@ bool Server::handleClientEvent(size_t poll_index)
     short revents = poll_fds_[poll_index].revents;
     ClientConnection* client = findClientByFd(fd);
 
-    // Verificación de seguridad: si el cliente no existe, limpiar el fd huerfano
+    // Safety check: if client doesn't exist, clean up orphan fd
     if (!client)
     {
         poll_fds_.erase(poll_fds_.begin() + poll_index);
@@ -283,17 +283,17 @@ bool Server::handleClientEvent(size_t poll_index)
         return false;
     }
 
-    // 1. ERRORES / DESCONEXIÓN (POLLERR, POLLHUP, POLLNVAL)
+    // 1. ERRORS / DISCONNECTION (POLLERR, POLLHUP, POLLNVAL)
     if (revents & (POLLERR | POLLHUP | POLLNVAL))
     {
         std::cout << YELLOW << "[SERVER] Client fd=" << fd
                   << " disconnected (poll error)" << RESET << std::endl;
-        processClientCommands(client); // Procesar lo que quede (opcional)
+        processClientCommands(client); // Process remaining commands (optional)
         disconnectClient(poll_index);
-        return false; // Retornamos false porque borramos el cliente
+        return false; // Return false because we deleted the client
     }
 
-    // 2. LECTURA (POLLIN)
+    // 2. READ (POLLIN)
     if (revents & POLLIN)
     {
         char buffer[4096];
@@ -305,23 +305,23 @@ bool Server::handleClientEvent(size_t poll_index)
             client->appendRecvData(std::string(buffer, bytes));
             client->updateActivity();
 
-            // Procesar comandos (aquí se ejecuta NICK, JOIN, QUIT, etc.)
+            // Process commands (this executes NICK, JOIN, QUIT, etc.)
             processClientCommands(client);
 
-            // CRÍTICO: Verificar si el cliente pidió desconectarse (QUIT)
+            // CRITICAL: Check if client requested disconnection (QUIT)
             if (client->isClosed())
             {
                 disconnectClient(poll_index);
-                return false; // Cliente borrado, salimos
+                return false; // Client deleted, exit
             }
 
-            // Intentar enviar inmediatamente para reducir latencia
+            // Try to send immediately to reduce latency
             if (client->hasPendingSend())
             {
                 sendPendingData(client);
             }
         }
-        else if (bytes == 0) // Conexión cerrada por el cliente (EOF)
+        else if (bytes == 0) // Connection closed by client (EOF)
         {
             std::cout << YELLOW << "[SERVER] Client fd=" << fd
                       << " closed connection" << RESET << std::endl;
@@ -329,7 +329,7 @@ bool Server::handleClientEvent(size_t poll_index)
             disconnectClient(poll_index);
             return false;
         }
-        else // Error en recv
+        else // Error in recv
         {
             if (errno != EAGAIN && errno != EWOULDBLOCK)
             {
@@ -341,8 +341,8 @@ bool Server::handleClientEvent(size_t poll_index)
         }
     }
 
-    // 3. ESCRITURA (POLLOUT)
-    // Si el socket está listo para recibir datos y tenemos algo que enviar
+    // 3. WRITE (POLLOUT)
+    // If socket is ready to receive data and we have something to send
     if (revents & POLLOUT)
     {
         if (client->hasPendingSend())
@@ -351,8 +351,8 @@ bool Server::handleClientEvent(size_t poll_index)
         }
     }
 
-    // FIX FINAL: Actualizar eventos para la próxima llamada a poll()
-    // Si queda algo por enviar, pedimos POLLOUT. Si no, solo escuchamos (POLLIN).
+    // FINAL FIX: Update events for next poll() call
+    // If there's still something to send, request POLLOUT. If not, just listen (POLLIN).
     if (client->hasPendingSend())
     {
         poll_fds_[poll_index].events = POLLIN | POLLOUT;
@@ -362,10 +362,10 @@ bool Server::handleClientEvent(size_t poll_index)
         poll_fds_[poll_index].events = POLLIN;
     }
     
-    // Limpiar revents es buena práctica, aunque poll() lo sobreescribe
+    // Clearing revents is good practice, although poll() overwrites it
     poll_fds_[poll_index].revents = 0;
 
-    return true; // Cliente sigue vivo
+    return true; // Client still alive
 }
 
 //* ============================================================================
@@ -375,40 +375,40 @@ bool Server::handleClientEvent(size_t poll_index)
 
 void Server::disconnectClient(size_t poll_index)
 {
-    // 1. Obtener información básica antes de borrar nada
+    // 1. Get basic information before deleting anything
     int fd = poll_fds_[poll_index].fd;
     ClientConnection* client = findClientByFd(fd);
 
     std::cout << YELLOW << "[SERVER] Disconnecting client fd=" << fd << RESET << std::endl;
 
-    // 2. Si el cliente existe, limpiar lógica de IRC y objetos
+    // 2. If client exists, clean up IRC logic and objects
     if (client)
     {
         User* user = client->getUser();
         if (user)
         {
-            // A. LIMPIEZA DE CANALES
-            // Hacemos una COPIA del vector de canales porque vamos a modificar
+            // A. CHANNEL CLEANUP
+            // Make a COPY of the channels vector because we're going to modify it
             std::vector<Channel*> userChannels = user->getChannels();
 
             for (std::vector<Channel*>::iterator it = userChannels.begin(); it != userChannels.end(); ++it)
             {
                 Channel* channel = *it;
 
-                // 1. Notificar a los demás (QUIT message)
+                // 1. Notify others (QUIT message)
                 std::string timestamp = getCurrentTimestamp();
                 std::string quitMsg = std::string(BRIGHT_MAGENTA) + "@time=" + timestamp + RESET + " " +
                                         BRIGHT_CYAN + ":" + user->getPrefix() + RESET +
                                         " " + RED + "QUIT" + RESET + " :Connection closed\r\n";
                 channel->broadcast(quitMsg, user);
 
-                // 2. Eliminar al usuario del canal
+                // 2. Remove user from channel
                 channel->removeMember(user);
 
-                // 3. Gestionar canales vacíos (Evitar fugas de memoria en canales)
+                // 3. Manage empty channels (Avoid memory leaks in channels)
                 if (channel->getUserCount() == 0)
                 {
-                    // Buscar y borrar el canal de la lista global del servidor
+                    // Find and delete the channel from the server's global list
                     for (std::vector<Channel*>::iterator chanIt = channels_.begin(); chanIt != channels_.end(); ++chanIt)
                     {
                         if (*chanIt == channel)
@@ -422,8 +422,8 @@ void Server::disconnectClient(size_t poll_index)
             }
         }
 
-        // B. ELIMINAR DE LA LISTA DE CLIENTES DEL SERVIDOR
-        // (Usamos un bucle manual para encontrar y borrar el puntero en el vector)
+        // B. REMOVE FROM SERVER'S CLIENT LIST
+        // (Use manual loop to find and delete the pointer in the vector)
         for (std::vector<ClientConnection*>::iterator it = clients_.begin(); it != clients_.end(); ++it)
         {
             if (*it == client)
@@ -433,20 +433,20 @@ void Server::disconnectClient(size_t poll_index)
             }
         }
 
-        // C. CERRAR SOCKET Y LIBERAR MEMORIA
+        // C. CLOSE SOCKET AND FREE MEMORY
         close(fd);
         if (user)
-            delete user; // El User debe borrarse manualmente
-        delete client;   // Borramos la conexión
+            delete user; // User must be manually deleted
+        delete client;   // Delete the connection
     }
     else
     {
-        // Si no encontramos el objeto cliente, cerramos el fd por seguridad
+        // If we don't find the client object, close the fd for safety
         close(fd);
     }
 
-    // 3. ACTUALIZAR POLL_FDS
-    // Eliminamos el fd del vector de monitoreo.
+    // 3. UPDATE POLL_FDS
+    // Remove the fd from the monitoring vector.
     if (poll_index < poll_fds_.size())
         poll_fds_.erase(poll_fds_.begin() + poll_index);
 }
@@ -459,35 +459,35 @@ void Server::processClientCommands(ClientConnection* client)
 {
     client->updateActivity();
     
-    // Procesamos TODAS las líneas completas que haya en el buffer
-    // (Importante por si llegaron varios comandos pegados)
+    // Process ALL complete lines in the buffer
+    // (Important in case several commands arrived together)
     while (client->hasCompleteLine())
     {
         std::string rawLine = client->popLine();
         
-        // Debug opcional
+        // Optional debug
         // std::cout << "[DEBUG] < " << rawLine << std::endl;
 
-        // 1. Parseamos la línea
+        // 1. Parse the line
         Message msg = Parser::parse(rawLine);
 
-        // 2. Si el comando está vacío (línea en blanco o solo espacios), ignoramos
+        // 2. If command is empty (blank line or only spaces), ignore
         if (msg.command.empty())
             continue;
 
-        // 3. Buscamos el comando en el mapa
+        // 3. Search for command in the map
         std::map<std::string, CommandHandler>::iterator it = _commandMap.find(msg.command);
 
         if (it != _commandMap.end())
         {
-            // Encontrado = Ejecutamos la función asociada
+            // Found = Execute the associated function
             (this->*(it->second))(client, msg);
         }
         else
         {
-            // COMANDO NO ENCONTRADO
-            // Deberia enviar ERR_UNKNOWNCOMMAND (421)
-            // Por ahora, un log simple:
+            // COMMAND NOT FOUND
+            // Should send ERR_UNKNOWNCOMMAND (421)
+            // For now, a simple log:
             std::cerr << "[SERVER] Unknown command: " << msg.command << std::endl;
         }
     }
@@ -500,12 +500,12 @@ void Server::sendPendingData(ClientConnection* client)
 
     const std::string& data = client->getSendBuffer();
     
-    // Envío no bloqueante con MSG_DONTWAIT
+    // Non-blocking send with MSG_DONTWAIT
     ssize_t bytesSent = send(client->getFd(), data.c_str(), data.length(), MSG_DONTWAIT);
 
     if (bytesSent > 0)
     {
-        // Limpiar solo los bytes que se enviaron
+        // Only clear the bytes that were sent
         client->clearSentData(bytesSent);
         
         std::cout << "[DEBUG] Sent " << bytesSent << "/" << data.length() 
@@ -513,14 +513,14 @@ void Server::sendPendingData(ClientConnection* client)
     }
     else if (bytesSent < 0)
     {
-        // Errores normales en non-blocking
+        // Normal errors in non-blocking
         if (errno == EAGAIN || errno == EWOULDBLOCK)
         {
-            // Socket lleno, lo intentaremos en el próximo POLLOUT
+            // Socket full, we'll try again on next POLLOUT
             return;
         }
         
-        // Error fatal
+        // Fatal error
         std::cerr << "[ERROR] send() failed: " << strerror(errno) << std::endl;
         client->closeConnection();
     }
@@ -562,7 +562,7 @@ ClientConnection* Server::findClientByFd(int fd)
 
 void Server::initCommands()
 {
-    // Mapeamos el string del comando a la función miembro correspondiente
+    // Map the command string to the corresponding member function
     _commandMap["PASS"] = &Server::cmdPass;
     _commandMap["NICK"] = &Server::cmdNick;
     _commandMap["USER"] = &Server::cmdUser;
@@ -581,7 +581,7 @@ void Server::initCommands()
     _commandMap["TOPIC"] = &Server::cmdTopic;
     _commandMap["MODE"] = &Server::cmdMode;
     
-    // El Parser ya se encarga de poner el comando en mayúsculas
+    // Parser already handles converting command to uppercase
 }
 
 //* ============================================================================

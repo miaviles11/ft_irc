@@ -60,7 +60,7 @@ std::vector<std::string> split(const std::string &s, char delimiter) {
     std::string token;
     std::istringstream tokenStream(s);
     while (std::getline(tokenStream, token, delimiter)) {
-        if (!token.empty()) // Evitar tokens vacíos
+        if (!token.empty()) // Avoid empty tokens
             tokens.push_back(token);
     }
     return tokens;
@@ -71,15 +71,15 @@ void checkRegistration(ClientConnection* client)
     if (client->isRegistered()) return;
     
     User* user = client->getUser();
-    // Requisito: Haber mandado PASS, tener Nick y tener User
+    // Requirement: Must have sent PASS, have Nick and have User
     if (client->hasSentPass() && !user->getNickname().empty() && !user->getUsername().empty())
     {
         client->setRegistered(true);
-        // Mensajes de bienvenida estándar con colores
+        // Standard welcome messages with colors
         sendReply(client, RPL_WELCOME, std::string(":") + BRIGHT_GREEN + "Welcome to the FT_IRC Network " + MAGENTA + user->getPrefix() + RESET);
         sendReply(client, RPL_YOURHOST, std::string(":") + CYAN + "Your host is ft_irc, running version 1.0" + RESET);
         sendReply(client, RPL_CREATED, std::string(":") + CYAN + "This server was created today" + RESET);
-        sendReply(client, RPL_MYINFO, std::string(CYAN) + "ft_irc 1.0 io tkl" + RESET); // Modos soportados
+        sendReply(client, RPL_MYINFO, std::string(CYAN) + "ft_irc 1.0 io tkl" + RESET); // Supported modes
         
         std::cout << BRIGHT_GREEN << "[SERVER] User registered: " << MAGENTA << user->getNickname() << RESET << std::endl;
     }

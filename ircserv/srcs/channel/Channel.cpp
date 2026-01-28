@@ -18,15 +18,15 @@ Channel::Channel(const std::string& name) :
 
 Channel::~Channel()
 {
-    // No borramos los usuarios (User*), pertenecen al Server.
-    // Solo limpiamos las listas.
+    // Don't delete users (User*), they belong to the Server.
+    // Just clear the lists.
     _members.clear();
     _operators.clear();
     _invites.clear();
 }
 
 // ============================================================================
-// GETTERS BÁSICOS
+// BASIC GETTERS
 // ============================================================================
 
 const std::string& Channel::getName() const { return _name; }
@@ -36,7 +36,7 @@ size_t Channel::getUserCount() const { return _members.size(); }
 int Channel::getLimit() const { return _limit; }
 
 // ============================================================================
-// MODOS
+// MODES
 // ============================================================================
 
 std::string Channel::getModes() const
@@ -47,7 +47,7 @@ std::string Channel::getModes() const
     if (_hasKey) modes += "k";
     if (_hasLimit) modes += "l";
     
-    // Añadir argumentos de modos (key y limit)
+    // Add mode arguments (key and limit)
     if (_hasKey) modes += " " + _key;
     if (_hasLimit) {
         char buff[20];
@@ -70,7 +70,7 @@ void Channel::setMode(char mode, bool active)
 {
     if (mode == 'i') _inviteOnly = active;
     else if (mode == 't') _topicOpOnly = active;
-    // k y l se gestionan con setKey y setLimit específicamente
+    // k and l are managed with setKey and setLimit specifically
 }
 
 void Channel::setKey(const std::string& key)
@@ -101,7 +101,7 @@ void Channel::setTopic(const std::string& topic)
 }
 
 // ============================================================================
-// GESTIÓN DE MIEMBROS
+// MEMBER MANAGEMENT
 // ============================================================================
 
 void Channel::addMember(User* user)
@@ -109,7 +109,7 @@ void Channel::addMember(User* user)
     if (!isMember(user))
         _members.push_back(user);
     
-    // Si estaba invitado, lo sacamos de la lista de pendientes
+    // If user was invited, remove from pending invites
     if (_invites.count(user->getNickname()))
         _invites.erase(user->getNickname());
 }
@@ -120,7 +120,7 @@ void Channel::removeMember(User* user)
     if (it != _members.end())
         _members.erase(it);
 
-    // Si era operador, quitarlo también
+    // If user was an operator, remove from operators too
     removeOperator(user);
 }
 
@@ -138,14 +138,14 @@ User* Channel::getMember(const std::string& nick) const
     return NULL;
 }
 
-// [CRÍTICO] Implementación necesaria para el fix de spam en NICK
+// [CRITICAL] Implementation needed for NICK spam fix
 const std::vector<User*>& Channel::getMembers() const
 {
     return _members;
 }
 
 // ============================================================================
-// GESTIÓN DE OPERADORES
+// OPERATOR MANAGEMENT
 // ============================================================================
 
 void Channel::addOperator(User* user)
@@ -167,7 +167,7 @@ bool Channel::isOperator(User* user) const
 }
 
 // ============================================================================
-// GESTIÓN DE INVITACIONES
+// INVITE MANAGEMENT
 // ============================================================================
 
 void Channel::addInvite(const std::string& nick)
@@ -181,7 +181,7 @@ bool Channel::isInvited(User* user) const
 }
 
 // ============================================================================
-// COMUNICACIÓN
+// COMMUNICATION
 // ============================================================================
 
 void Channel::broadcast(const std::string& message, User* exclude)
@@ -198,8 +198,8 @@ void Channel::broadcast(const std::string& message, User* exclude)
         {
             conn->queueSend(message);
             
-            // FIX: Forzar envío inmediato si es posible
-            // Esto no lo puedes hacer desde aquí porque Channel no conoce Server
+            // FIX: Force immediate send if possible
+            // This can't be done from here because Channel doesn't know Server
         }
     }
 }
@@ -211,7 +211,7 @@ std::string Channel::getNamesList() const
     {
         if (i > 0) list += " ";
         
-        // Prefijo de operador con color
+        // Operator prefix with color
         if (isOperator(_members[i]))
             list += std::string(BRIGHT_RED) + "@" + MAGENTA;
         else

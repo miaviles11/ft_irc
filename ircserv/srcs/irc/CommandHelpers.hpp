@@ -17,7 +17,7 @@
 #include <vector>
 #include "../client/ClientConnection.hpp"
 
-// Definiciones de seguridad para respuestas numéricas
+// Security definitions for numeric replies
 #ifndef RPL_CHANNELMODEIS
 #define RPL_CHANNELMODEIS "324"
 #endif
@@ -28,7 +28,7 @@
 #define ERR_UMODEUNKNOWNFLAG "501"
 #endif
 
-// Declaraciones de funciones auxiliares
+// Helper function declarations
 void sendReply(ClientConnection* client, std::string num, std::string msg);
 void sendError(ClientConnection* client, std::string num, std::string arg);
 std::vector<std::string> split(const std::string &s, char delimiter);

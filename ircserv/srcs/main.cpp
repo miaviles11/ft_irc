@@ -15,19 +15,19 @@
 #include <cstdlib>
 #include <csignal>
 
-// Puntero global para acceder al servidor desde el handler de señales.
-// Se usa SOLO para llamar a stop(), no para borrar memoria.
+// Global pointer to access server from signal handler.
+// Used ONLY to call stop(), not to delete memory.
 Server* g_server = NULL;
 
-// Manejador de señales seguro (Async-Signal-Safe)
-// No debe contener 'delete', 'cout', 'malloc', etc.
+// Safe signal handler (Async-Signal-Safe)
+// Must not contain 'delete', 'cout', 'malloc', etc.
 void signalHandler(int signum)
 {
-    (void)signum; // Silenciar warning de variable no usada
+    (void)signum; // Silence unused variable warning
     if (g_server) 
     {
-        // Solo indicamos al servidor que detenga su bucle principal.
-        // La memoria se liberará en el main() después de que run() retorne.
+        // Only tell the server to stop its main loop.
+        // Memory will be freed in main() after run() returns.
         g_server->stop();
     }
 }
@@ -61,13 +61,13 @@ int main(int argc, char **argv)
     }
     
     //* CONFIGURE SIGNALS
-    // SIGINT (Ctrl+C) y SIGTERM son las señales estándar de terminación
+    // SIGINT (Ctrl+C) and SIGTERM are standard termination signals
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
     
-    // SIGPIPE es crucial en servidores de red. Si un cliente cierra la conexión
-    // mientras intentamos escribirle, el OS envía SIGPIPE que crashea el programa
-    // por defecto. SIG_IGN hace que send() devuelva error (EPIPE) en su lugar.
+    // SIGPIPE is crucial in network servers. If a client closes the connection
+    // while we try to write to it, the OS sends SIGPIPE which crashes the program
+    // by default. SIG_IGN makes send() return error (EPIPE) instead.
     signal(SIGPIPE, SIG_IGN);
     
     //* CREATE AND START SERVER
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     
     if (!g_server->start()) {
         std::cerr << "[FATAL] Could not start server\n";
-        delete g_server; // Limpieza temprana si falla el inicio
+        delete g_server; // Early cleanup if startup fails
         return (1);
     }
     
@@ -86,13 +86,13 @@ int main(int argc, char **argv)
     std::cout << "║   Press Ctrl+C to exit               ║\n";
     std::cout << "╚══════════════════════════════════════╝\n\n";
     
-    // El programa se bloqueará aquí dentro del bucle while(running_)
+    // Program will block here inside the while(running_) loop
     g_server->run(); 
     
     //* CLEANUP
-    // Cuando g_server->stop() es llamado (por señal), run() termina y llegamos aquí.
-    // Es seguro hacer delete y cout aquí porque estamos en el hilo principal,
-    // no dentro de la interrupción de la señal.
+    // When g_server->stop() is called (by signal), run() terminates and we reach here.
+    // It's safe to do delete and cout here because we're in the main thread,
+    // not inside the signal interrupt.
     std::cout << "\n[MAIN] Stopping server..." << std::endl;
     delete g_server;
     g_server = NULL;

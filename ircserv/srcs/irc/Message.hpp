@@ -17,11 +17,11 @@
 #include <vector>
 
 struct Message {
-    std::string prefix;      // Opcional (ej: :nick!user@host)
-    std::string command;     // El comando (ej: PRIVMSG, JOIN)
-    std::vector<std::string> params; // Argumentos (ej: #canal)
+    std::string prefix;      // Optional (e.g.: :nick!user@host)
+    std::string command;     // The command (e.g.: PRIVMSG, JOIN)
+    std::vector<std::string> params; // Arguments (e.g.: #channel)
 
-    // Helper para depuración
+    // Helper for debugging
     bool isValid() const { return !command.empty(); }
 };
 

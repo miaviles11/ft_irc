@@ -68,7 +68,7 @@ void ClientConnection::appendRecvData(const std::string& data)
 
 bool ClientConnection::hasCompleteLine() const
 {
-	// Aceptar tanto \r\n (IRC estándar) como \n (telnet/nc)
+	// Accept both \r\n (IRC standard) and \n (telnet/nc)
 	return (_recvBuffer.find("\r\n") != std::string::npos || 
 	        _recvBuffer.find("\n") != std::string::npos);
 }
@@ -77,24 +77,24 @@ std::string ClientConnection::popLine()
 {
 	std::string line;
 	
-	// Buscar primero \r\n (protocolo IRC estándar)
+	// Look for \r\n first (standard IRC protocol)
 	size_t pos = _recvBuffer.find("\r\n");
 	
 	if (pos != std::string::npos) 
 	{
 		line = _recvBuffer.substr(0, pos);
-		_recvBuffer.erase(0, pos + 2); // Eliminar línea + \r\n
+		_recvBuffer.erase(0, pos + 2); // Remove line + \r\n
 	}
 	else 
 	{
-		// Fallback: buscar solo \n (telnet, netcat sin -C)
+		// Fallback: look for just \n (telnet, netcat without -C)
 		pos = _recvBuffer.find("\n");
 		if (pos != std::string::npos) 
 		{
 			line = _recvBuffer.substr(0, pos);
-			_recvBuffer.erase(0, pos + 1); // Eliminar línea + \n
+			_recvBuffer.erase(0, pos + 1); // Remove line + \n
 			
-			// Limpiar posible \r residual al final
+			// Clean possible trailing \r
 			if (!line.empty() && line[line.length() - 1] == '\r')
 				line.erase(line.length() - 1);
 		}

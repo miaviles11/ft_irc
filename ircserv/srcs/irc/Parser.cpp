@@ -12,16 +12,16 @@
 
 #include "Parser.hpp"
 #include <iostream>
-#include <algorithm> // para transform
+#include <algorithm> // for transform
 
 std::string Parser::trim(const std::string& str) {
     std::string result = str;
-    // Eliminar \r y \n del final (común en IRC)
+    // Remove \r and \n from the end (common in IRC)
     size_t end = result.find_last_not_of("\r\n");
     if (end != std::string::npos)
         result = result.substr(0, end + 1);
     else
-        return ""; // String vacío o solo saltos de línea
+        return ""; // Empty string or only line breaks
     return result;
 }
 
@@ -35,56 +35,56 @@ std::string Parser::toUpper(const std::string& str) {
 Message Parser::parse(const std::string& rawLine) {
     Message msg;
     
-    // 1. Limpieza básica
+    // 1. Basic cleanup
     std::string line = trim(rawLine);
     if (line.empty()) return msg;
 
     size_t pos = 0;
     size_t len = line.length();
 
-    // 2. Parsear Prefijo (Opcional)
-    // El prefijo empieza por ':' pero solo si es el PRIMER caracter de la línea
+    // 2. Parse Prefix (Optional)
+    // The prefix starts with ':' but only if it's the FIRST character of the line
     if (pos < len && line[pos] == ':') {
         size_t spacePos = line.find(' ', pos);
         if (spacePos != std::string::npos) {
-            msg.prefix = line.substr(pos + 1, spacePos - pos - 1); // +1 para saltar el ':'
-            pos = line.find_first_not_of(' ', spacePos); // Saltar espacios
+            msg.prefix = line.substr(pos + 1, spacePos - pos - 1); // +1 to skip the ':'
+            pos = line.find_first_not_of(' ', spacePos); // Skip spaces
         } else {
-            // Caso raro: Línea solo contiene ":algo" (inválido pero no debe crashear)
+            // Rare case: Line only contains ":something" (invalid but shouldn't crash)
             return msg; 
         }
     }
 
-    // Si llegamos al final solo con prefijo, retornamos
+    // If we reach the end with only prefix, return
     if (pos == std::string::npos || pos >= len) return msg;
 
-    // 3. Parsear Comando
+    // 3. Parse Command
     size_t spacePos = line.find(' ', pos);
     if (spacePos != std::string::npos) {
         msg.command = toUpper(line.substr(pos, spacePos - pos));
         pos = line.find_first_not_of(' ', spacePos);
     } else {
-        // Caso: Comando sin parámetros (ej: "QUIT")
+        // Case: Command without parameters (e.g.: "QUIT")
         msg.command = toUpper(line.substr(pos));
         return msg;
     }
 
-    // 4. Parsear Parámetros
+    // 4. Parse Parameters
     while (pos != std::string::npos && pos < len) {
-        // Chequear Trailing Parameter (empieza por ':')
+        // Check Trailing Parameter (starts with ':')
         if (line[pos] == ':') {
-            // Tomamos TODO el resto de la línea tal cual (sin el ':')
+            // Take ALL the rest of the line as is (without the ':')
             msg.params.push_back(line.substr(pos + 1));
-            break; // No hay más parámetros después del trailing
+            break; // No more parameters after the trailing
         }
         
-        // Parámetro normal (separado por espacio)
+        // Normal parameter (separated by space)
         spacePos = line.find(' ', pos);
         if (spacePos != std::string::npos) {
             msg.params.push_back(line.substr(pos, spacePos - pos));
             pos = line.find_first_not_of(' ', spacePos);
         } else {
-            // Último parámetro (sin ':' previo)
+            // Last parameter (without previous ':')
             msg.params.push_back(line.substr(pos));
             break;
         }

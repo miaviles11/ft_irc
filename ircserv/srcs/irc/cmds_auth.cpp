@@ -17,21 +17,21 @@
 #include "CommandHelpers.hpp"
 #include "../irc/NumericReplies.hpp"
 #include "../utils/Colors.hpp"
-#include <set> // Necesario para evitar spam en NICK
+#include <set> // Required to avoid NICK spam
 
 // ============================================================================
-// HELPER: Enviar NOTICE informativo desde el servidor
+// HELPER: Send informational NOTICE from server
 // ============================================================================
 
 static void sendServerNotice(ClientConnection* client, const std::string& msg)
 {
-    // NOTICE no debe generar respuestas automáticas (RFC 1459)
+    // NOTICE should not generate automatic responses (RFC 1459)
     std::string notice = ":ft_irc NOTICE * :" + msg + "\r\n";
     client->queueSend(notice);
 }
 
 // ============================================================================
-// COMANDOS DE AUTENTICACIÓN CON FEEDBACK
+// AUTHENTICATION COMMANDS WITH FEEDBACK
 // ============================================================================
 
 void Server::cmdPass(ClientConnection* client, const Message& msg)
@@ -50,7 +50,7 @@ void Server::cmdPass(ClientConnection* client, const Message& msg)
 
     if (msg.params[0] != this->password_)
     {
-        // ❌ CONTRASEÑA INCORRECTA
+        // ❌ INCORRECT PASSWORD
         sendServerNotice(client, "");
         sendServerNotice(client, std::string(BRIGHT_RED) + "╔════════════════════════════════════════════════╗" + RESET);
         sendServerNotice(client, std::string(BRIGHT_RED) + "║                                                ║" + RESET);
@@ -63,9 +63,9 @@ void Server::cmdPass(ClientConnection* client, const Message& msg)
         sendServerNotice(client, "");
         sendError(client, ERR_PASSWDMISMATCH, "");
         sendPendingData(client);
-         // Log del servidor
+        // Server log
         std::cout << RED << "[AUTH] ✗ Password incorrect (fd=" 
-          << client->getFd() << ")" << RESET << std::endl;
+            << client->getFd() << ")" << RESET << std::endl;
         client->closeConnection();
         return;
     }
@@ -73,7 +73,7 @@ void Server::cmdPass(ClientConnection* client, const Message& msg)
     // Password accepted
     client->markPassReceived();
     std::cout << BRIGHT_GREEN << "[AUTH] ✓ Password accepted (fd=" 
-              << client->getFd() << ")" << RESET << std::endl;
+            << client->getFd() << ")" << RESET << std::endl;
     sendServerNotice(client, "");
     sendServerNotice(client, std::string(BRIGHT_GREEN) + "╔════════════════════════════════════════════════╗" + RESET);
     sendServerNotice(client, std::string(BRIGHT_GREEN) + "║                                                ║" + RESET);
@@ -97,28 +97,28 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
 
     std::string newNick = msg.params[0];
 
-    // Verificar longitud máxima (9 caracteres)
+    // Check maximum length (9 characters)
     if (newNick.length() > 9)
     {
         sendServerNotice(client, std::string(BRIGHT_RED) + "* ERROR: Nickname too long (max 9 chars)" + RESET);
         return sendError(client, ERR_ERRONEUSNICKNAME, newNick);
     }
 
-    // Verificar que no empiece con dígito o '-'
+    // Check that it doesn't start with digit or '-'
     if (std::isdigit(newNick[0]) || newNick[0] == '-')
     {
         sendServerNotice(client, std::string(BRIGHT_RED) + "*** ERROR: Nickname cannot start with a digit or '-'" + RESET);
         return sendError(client, ERR_ERRONEUSNICKNAME, newNick);
     }
 
-    // Caracteres permitidos (RFC 2812)
+    // Allowed characters (RFC 2812)
     if (newNick.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789[]{}\\|-_^") != std::string::npos)
     {
         sendServerNotice(client, std::string(BRIGHT_RED) + "*** ERROR: Invalid nickname. Use only letters, numbers, and -_[]{}\\|^" + RESET);
         return sendError(client, ERR_ERRONEUSNICKNAME, newNick);
     }
 
-    // Verificar si ya existe el nickname en el servidor
+    // Check if nickname already exists on server
     for (size_t i = 0; i < clients_.size(); ++i)
     {
         if (clients_[i] != client && clients_[i]->getUser() && clients_[i]->getUser()->getNickname() == newNick)
@@ -128,16 +128,16 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
         }
     }
 
-    // Notificar cambio (si ya estaba registrado)
+    // Notify change (if already registered)
     if (client->isRegistered())
     {
         std::string oldPrefix = client->getUser()->getPrefix();
         std::string notification = ":" + oldPrefix + " NICK :" + newNick + "\r\n";
         
-        // 1. Enviarse la confirmación a uno mismo
+        // 1. Send confirmation to self
         client->queueSend(notification);
         
-        // 2. Enviar a los demás usuarios que comparten canal (SIN SPAM)
+        // 2. Send to other users who share a channel (NO SPAM)
         std::set<ClientConnection*> uniqueRecipients;
         const std::vector<Channel*>& channels = client->getUser()->getChannels();
         
@@ -169,7 +169,7 @@ void Server::cmdNick(ClientConnection* client, const Message& msg)
         sendServerNotice(client, std::string(CYAN) + "*** Next step: USER <username> 0 * :<realname>" + RESET);
     }
 
-    // Aplicar el cambio
+    // Apply the change
     client->getUser()->setNickname(newNick);
     checkRegistration(client);
 }
@@ -198,7 +198,7 @@ void Server::cmdUser(ClientConnection* client, const Message& msg)
     user->setUsername(msg.params[0]);
     user->setRealname(msg.params[3]);
     
-    // Mensaje de bienvenida
+    // Welcome message
     sendServerNotice(client, "");
     sendServerNotice(client, std::string(BRIGHT_GREEN) + "╔════════════════════════════════════════════════════════════╗" + RESET);
     sendServerNotice(client, std::string(BRIGHT_GREEN) + "║                                                            ║" + RESET);
@@ -232,11 +232,11 @@ void Server::cmdUser(ClientConnection* client, const Message& msg)
     sendServerNotice(client, std::string(BRIGHT_GREEN) + "    Type " + BRIGHT_WHITE + "JOIN #general" + BRIGHT_GREEN + " to get started!" + RESET);
     sendServerNotice(client, "");
     
-    // Log del servidor
+    // Server log
     std::cout << BRIGHT_GREEN << "[REGISTER] ✓ User registered: " 
-              << BRIGHT_MAGENTA << user->getNickname() 
-              << RESET << " (" << user->getUsername() << ")" 
-              << " (fd=" << client->getFd() << ")" << RESET << std::endl;
+            << BRIGHT_MAGENTA << user->getNickname() 
+            << RESET << " (" << user->getUsername() << ")" 
+            << " (fd=" << client->getFd() << ")" << RESET << std::endl;
     
     checkRegistration(client);
 }
@@ -245,16 +245,16 @@ void Server::cmdQuit(ClientConnection* client, const Message& msg)
 {
     std::string reason = (msg.params.empty()) ? "Client Quit" : msg.params[0];
     
-    // La lógica de desconexión y limpieza de canales se maneja en el bucle principal (Server::run)
-    // al detectar que la conexión está cerrada.
-    // Solo marcamos para cerrar.
+    // Disconnection and channel cleanup logic is handled in the main loop (Server::run)
+    // when detecting that the connection is closed.
+    // Just mark for closing.
     (void)reason; 
     client->closeConnection();
 }
 
 void Server::cmdPing(ClientConnection* client, const Message& msg)
 {
-    // PING puede tener 1 o 2 parámetros:
+    // PING can have 1 or 2 parameters:
     // PING token1
     // PING token1 token2
     if (msg.params.empty())
@@ -262,21 +262,21 @@ void Server::cmdPing(ClientConnection* client, const Message& msg)
     
     std::string token = msg.params[0];
     
-    // Si hay un segundo parámetro, es para especificar a qué servidor enviar PONG
-    // En nuestro caso, ignoramos el segundo parámetro y siempre respondemos nosotros
+    // If there's a second parameter, it's to specify which server to send PONG to
+    // In our case, we ignore the second parameter and always respond ourselves
     client->queueSend(":ft_irc PONG ft_irc :" + token + "\r\n");
 }
 
 void Server::cmdPong(ClientConnection* client, const Message& msg)
 {
-    // PONG se recibe cuando el cliente responde a nuestro PING
-    // RFC 1459: Se usa para mantener la conexión viva y como respuesta a PING
+    // PONG is received when the client responds to our PING
+    // RFC 1459: Used to keep the connection alive and as a response to PING
     (void)msg;
     
-    // Actualizar timestamp de actividad para indicar que el cliente está vivo
+    // Update activity timestamp to indicate that the client is alive
     client->updateActivity();
     
     std::cout << GREEN << "[PING/PONG] Client (fd=" << client->getFd() 
-              << ") sent PONG - connection alive" << RESET << std::endl;
+            << ") sent PONG - connection alive" << RESET << std::endl;
 }
 
